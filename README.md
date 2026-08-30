@@ -20,8 +20,7 @@
   6. **回测评估与实盘局限性**（过拟合风险、滑点/手续费摩擦、前视偏差防范）
   7. **时间戳重点导航**（核心观点与章节时间锚点直链）
 - 🚀 **混合文稿转录引擎 (Hybrid Transcript Engine)**：
-  - **秒级字幕提取**：优先调用 YouTube 原生/多语言自动字幕 API，无需下载视频与音频，极速省流。
-  - **音频理解兜底**：无字幕视频自动轻量下载音频，交由 Google Gemini 多模态音频理解能力精准转录。
+  - **Gemini 视频多模态兜底 (零下载)**：无字幕视频直接将公开 YouTube URL 发送给 Google Gemini 进行音画多模态理解与转录，无需本地下载音视频或依赖 FFmpeg。
 - 📚 **Obsidian & Notion 知识库友好**：
   - 每篇研报均包含标准 YAML Frontmatter（tags, channel, date, source_url 等）。
   - 自动维护全局 `output/INDEX.md` 与分频道 `output/<Channel>/INDEX.md` 索引目录。
@@ -78,34 +77,51 @@ OUTPUT_DIR=output
 
 ## 📖 快速上手
 
-### 1. 批量分析 UP 主频道的所有投资视频（最常用）
+### 🌟 模式 A：Antigravity 协同模式（🔥 推荐：免 API Key，直接使用 Gemini Pro 账号）
 
-只需传入 UP 主首页链接，程序将自动扫描并分析该频道**所有**投资相关视频：
+无需申请或配置任何 `GEMINI_API_KEY`，使用本地 Python 工具抓取文稿，结合 Antigravity 对话全自动生成研报：
 
+#### 步骤 1：在终端运行预抓取命令（免 Key）
 ```bash
-python -m summarizer channel "https://www.youtube.com/@AlgorithmTradingIn"
+# 抓取频道前 5 个量化视频的元数据与文稿
+python -m summarizer fetch "https://www.youtube.com/@AlgorithmTradingIn" -n 5
+
+# 或者抓取单个视频
+python -m summarizer fetch "https://www.youtube.com/watch?v=6HVkYX298qM"
 ```
 
-> **参数说明**：
-> - `--limit N` (或 `-n N`): 限制仅处理最新的 N 个视频（例如 `-n 5`）。不填则处理频道全量视频。
-> - `--all-videos` (或 `-a`): 强制处理全部视频，不过滤非投资视频。
-> - `--force` (或 `-f`): 强制重新生成已缓存的研报。
+#### 步骤 2：在 Antigravity 聊天框中一键生成研报
+抓取完成后，直接在 Antigravity 聊天中发送：
+> **“帮我提炼刚刚抓取的研报”** 或 **“生成 @AlgorithmTradingIn 的研报”**
 
-### 2. 总结单个量化视频
+Antigravity 会自动读取抓取到的文稿，严格按照 7 大维度标准撰写量化研报、提供工业级 Python 复现代码，并自动保存至 `output/` 目录与更新 `INDEX.md`！
+
+---
+
+### 🚀 模式 B：独立 CLI 自动模式（需配置 GEMINI_API_KEY）
+
+如果你在 `.env` 中配置了 `GEMINI_API_KEY`，可直接在终端一键全自动生成：
 
 ```bash
+# 批量分析 UP 主频道的投资视频
+python -m summarizer channel "https://www.youtube.com/@AlgorithmTradingIn" -n 5
+
+# 单视频分析
 python -m summarizer summarize "https://www.youtube.com/watch?v=6HVkYX298qM"
 ```
 
-### 3. 刷新与重建索引目录
+> **常用参数**：
+> - `--limit N` (或 `-n N`): 限制处理最新的 N 个视频。不填则处理全部视频。
+> - `--all-videos` (或 `-a`): 强制处理全部视频，不过滤非投资视频。
+> - `--force` (或 `-f`): 强制重新生成已缓存的研报。
+
+### 📑 实用管理命令
 
 ```bash
+# 刷新与重建全局及分频道索引目录
 python -m summarizer index
-```
 
-### 4. 查看知识库处理状态
-
-```bash
+# 查看知识库处理状态与统计
 python -m summarizer status
 ```
 

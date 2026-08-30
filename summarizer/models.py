@@ -54,3 +54,10 @@ class VideoRecord(BaseModel):
     error_message: Optional[str] = None
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
+
+
+class VideoTask(BaseModel):
+    metadata: VideoMetadata
+    transcript: TranscriptResult
+    fetched_at: str
+

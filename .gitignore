@@ -43,3 +43,8 @@ htmlcov/
 .vscode/
 *.tmp
 .DS_Store
+
+# Logs and cookies
+*.log
+youtube_cookies*.txt
+.agents/

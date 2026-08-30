@@ -1,6 +1,4 @@
 from __future__ import annotations
-import os
-import tempfile
 from pathlib import Path
 from typing import List, Optional
 import yt_dlp
@@ -20,7 +18,7 @@ class HybridTranscriber:
         Hybrid transcript extraction:
         1. Priority 1: YouTube Transcript API (Subtitles, fast & lightweight)
         2. Priority 2: yt-dlp Subtitle Extraction
-        3. Priority 3: Fallback Audio extraction + Gemini Audio transcription
+        3. Priority 3: Fallback Direct Gemini Video URL Multimodal Understanding (Zero local download)
         """
         video_id = metadata.video_id
 
@@ -40,8 +38,8 @@ class HybridTranscriber:
         except Exception:
             pass
 
-        # Strategy 3: Audio fallback + Gemini Audio understanding
-        return self._extract_via_gemini_audio(metadata)
+        # Strategy 3: Zero-download direct Gemini Video URL understanding
+        return self._extract_via_gemini_video_url(metadata)
 
     def _extract_via_transcript_api(self, video_id: str) -> Optional[TranscriptResult]:
         from youtube_transcript_api import YouTubeTranscriptApi
@@ -132,61 +130,43 @@ class HybridTranscriber:
                 return None
         return None
 
-    def _extract_via_gemini_audio(self, metadata: VideoMetadata) -> TranscriptResult:
+    def _extract_via_gemini_video_url(self, metadata: VideoMetadata) -> TranscriptResult:
+        """
+        Fallback Strategy 3: Directly pass YouTube URL to Gemini as a multimodal Part.
+        Zero local download, zero disk I/O, zero ffmpeg dependency.
+        """
         if not self.gemini_client:
             raise RuntimeError(
-                "Gemini Client is required for audio transcription fallback when no subtitles exist. "
+                "Gemini Client is required for video transcript fallback when no subtitles exist. "
                 "Please configure GEMINI_API_KEY."
             )
 
-        with tempfile.TemporaryDirectory() as tmpdir:
-            out_template = os.path.join(tmpdir, f"{metadata.video_id}.%(ext)s")
-            opts = {
-                "format": "ba[ext=m4a]/ba/b",
-                "outtmpl": out_template,
-                "postprocessors": [{
-                    "key": "FFmpegExtractAudio",
-                    "preferredcodec": "mp3",
-                    "preferredquality": "64",
-                }],
-                "quiet": True,
-                "no_warnings": True,
-            }
-            if self.proxy:
-                opts["proxy"] = self.proxy
+        from google.genai import types
 
-            with yt_dlp.YoutubeDL(opts) as ydl:
-                ydl.download([metadata.url])
+        prompt = (
+            "Please listen to and watch the following YouTube video, and extract/transcribe the spoken content "
+            "verbatim into standard text with timestamps.\n"
+            "Format each segment as: [HH:MM:SS] Text content.\n"
+            "Ensure accurate transcription of quantitative trading concepts, math formulas, technical indicators, and code."
+        )
 
-            audio_files = list(Path(tmpdir).glob("*.mp3")) + list(Path(tmpdir).glob("*.m4a"))
-            if not audio_files:
-                raise RuntimeError(f"Failed to download audio for video {metadata.video_id}")
+        response = self.gemini_client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=[
+                types.Part.from_uri(
+                    file_uri=metadata.url,
+                    mime_type="video/*"
+                ),
+                prompt
+            ]
+        )
+        transcript_text = response.text or ""
 
-            audio_path = str(audio_files[0])
-            
-            uploaded_file = self.gemini_client.files.upload(file=audio_path)
-            try:
-                prompt = (
-                    "Please transcribe the following audio verbatim into standard text with timestamps. "
-                    "Format each paragraph as: [HH:MM:SS] Text content. "
-                    "Ensure accurate transcription of quant trading terminology, technical indicators, and numbers."
-                )
-                response = self.gemini_client.models.generate_content(
-                    model="gemini-2.5-flash",
-                    contents=[uploaded_file, prompt]
-                )
-                transcript_text = response.text or ""
-                
-                return TranscriptResult(
-                    video_id=metadata.video_id,
-                    source="gemini_audio",
-                    language="auto",
-                    full_text=transcript_text,
-                    formatted_transcript=transcript_text,
-                    segments=[]
-                )
-            finally:
-                try:
-                    self.gemini_client.files.delete(name=uploaded_file.name)
-                except Exception:
-                    pass
+        return TranscriptResult(
+            video_id=metadata.video_id,
+            source="gemini_video_url",
+            language="auto",
+            full_text=transcript_text,
+            formatted_transcript=transcript_text,
+            segments=[]
+        )

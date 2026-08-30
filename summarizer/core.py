@@ -210,3 +210,172 @@ class QuantSummarizer:
             "failed": failed_records,
             "global_index": str(self.output_dir / "INDEX.md"),
         }
+
+    def fetch_video(self, url_or_id: str) -> Tuple[VideoMetadata, TranscriptResult, Path]:
+        """Fetch video metadata and transcript without requiring GEMINI_API_KEY. Saves task json."""
+        from datetime import datetime
+        import json
+        from summarizer.utils import sanitize_filename
+        from summarizer.models import VideoTask
+
+        metadata = self.ingester.get_video_metadata(url_or_id)
+        transcript = self.transcriber.get_transcript(metadata)
+
+        task_dir = self.output_dir / ".transcripts" / sanitize_filename(metadata.channel)
+        task_dir.mkdir(parents=True, exist_ok=True)
+        task_file = task_dir / f"{metadata.video_id}.json"
+
+        task = VideoTask(
+            metadata=metadata,
+            transcript=transcript,
+            fetched_at=datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        )
+        task_file.write_text(task.model_dump_json(indent=2), encoding="utf-8")
+        return metadata, transcript, task_file
+
+    def fetch_channel(
+        self,
+        channel_url: str,
+        limit: Optional[int] = None,
+        filter_investment: bool = True,
+        force: bool = False,
+        on_video_start=None,
+        on_video_complete=None,
+        on_video_error=None,
+    ) -> Dict[str, Any]:
+        """
+        Batch fetch metadata and transcripts for all investment videos from a channel.
+        Zero API Key required! Perfect for pairing with Antigravity / Gemini Pro account.
+        """
+        import json
+        from datetime import datetime
+        from summarizer.utils import sanitize_filename
+        from summarizer.models import VideoTask
+
+        raw_videos = self.ingester.get_channel_videos(channel_url, limit=limit)
+        if not raw_videos:
+            return {
+                "total_found": 0,
+                "investment_videos": [],
+                "filtered_out": [],
+                "fetched": [],
+                "cached": [],
+                "failed": [],
+            }
+
+        investment_videos: List[VideoMetadata] = []
+        filtered_out: List[Tuple[VideoMetadata, str]] = []
+
+        for v in raw_videos:
+            if filter_investment:
+                is_rel, reason = is_investment_related(v.title, v.description, v.tags)
+                if is_rel:
+                    investment_videos.append(v)
+                else:
+                    filtered_out.append((v, reason))
+            else:
+                investment_videos.append(v)
+
+        fetched_tasks: List[Tuple[VideoMetadata, Path]] = []
+        cached_tasks: List[VideoMetadata] = []
+        failed_tasks: List[Tuple[VideoMetadata, str]] = []
+
+        for idx, vid in enumerate(investment_videos, 1):
+            if on_video_start:
+                on_video_start(vid, idx, len(investment_videos))
+
+            # Check if report already completed
+            if not force and self.storage.is_processed(vid.video_id):
+                cached_tasks.append(vid)
+                if on_video_complete:
+                    on_video_complete(vid, None, is_cached=True)
+                continue
+
+            try:
+                # Refresh single metadata if needed
+                try:
+                    full_meta = self.ingester.get_video_metadata(vid.video_id)
+                    vid = full_meta
+                except Exception:
+                    pass
+
+                transcript = self.transcriber.get_transcript(vid)
+
+                channel_dir_name = sanitize_filename(vid.channel)
+                task_dir = self.output_dir / ".transcripts" / channel_dir_name
+                task_dir.mkdir(parents=True, exist_ok=True)
+                task_file = task_dir / f"{vid.video_id}.json"
+
+                task = VideoTask(
+                    metadata=vid,
+                    transcript=transcript,
+                    fetched_at=datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                )
+                task_file.write_text(task.model_dump_json(indent=2), encoding="utf-8")
+                fetched_tasks.append((vid, task_file))
+
+                if on_video_complete:
+                    on_video_complete(vid, task_file, is_cached=False)
+
+            except Exception as e:
+                failed_tasks.append((vid, str(e)))
+                if on_video_error:
+                    on_video_error(vid, str(e))
+
+        return {
+            "total_found": len(raw_videos),
+            "investment_videos": investment_videos,
+            "filtered_out": filtered_out,
+            "fetched": fetched_tasks,
+            "cached": cached_tasks,
+            "failed": failed_tasks,
+        }
+
+    def record_report(
+        self,
+        metadata: VideoMetadata,
+        report_markdown: str,
+        model_name: str = "antigravity",
+        transcript_source: str = "youtube_subtitles",
+        tags: Optional[List[str]] = None
+    ) -> Tuple[VideoRecord, Path]:
+        """Save an externally generated (e.g. Antigravity) report and update all indices."""
+        report_file = self.indexer.save_report(metadata, report_markdown, model_name=model_name, tags=tags)
+
+        record = VideoRecord(
+            video_id=metadata.video_id,
+            channel=metadata.channel,
+            title=metadata.title,
+            upload_date=metadata.upload_date,
+            duration=metadata.duration_formatted,
+            status=ProcessingStatus.COMPLETED,
+            transcript_source=transcript_source,
+            report_path=str(report_file),
+        )
+        self.storage.save_record(record)
+        self.indexer.update_channel_index(metadata.channel)
+        self.indexer.update_global_index()
+        return record, report_file
+
+    def get_pending_transcripts(self, channel: Optional[str] = None) -> List[Tuple[VideoMetadata, TranscriptResult, Path]]:
+        """List all pre-fetched transcripts that haven't been summarized into completed reports yet."""
+        import json
+        from summarizer.utils import sanitize_filename
+        from summarizer.models import VideoTask
+
+        transcripts_dir = self.output_dir / ".transcripts"
+        if not transcripts_dir.exists():
+            return []
+
+        pending = []
+        pattern = f"{sanitize_filename(channel)}/*.json" if channel else "*/*.json"
+        for task_file in transcripts_dir.glob(pattern):
+            try:
+                data = json.loads(task_file.read_text(encoding="utf-8"))
+                task = VideoTask(**data)
+                if not self.storage.is_processed(task.metadata.video_id):
+                    pending.append((task.metadata, task.transcript, task_file))
+            except Exception:
+                continue
+
+        return pending
