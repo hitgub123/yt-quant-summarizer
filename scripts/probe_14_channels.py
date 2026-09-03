@@ -2,23 +2,15 @@ import yt_dlp
 from youtube_transcript_api import YouTubeTranscriptApi
 import json
 import time
+import sys
+from pathlib import Path
 
-channels = [
-    ("AlgorithmTradingIn", "https://www.youtube.com/@AlgorithmTradingIn/videos"),
-    ("AndreiJikh", "https://www.youtube.com/@AndreiJikh/videos"),
-    ("ARKInvest2015", "https://www.youtube.com/@ARKInvest2015/videos"),
-    ("MrBoKong", "https://www.youtube.com/@MrBoKong/videos"),
-    ("DataTraders", "https://www.youtube.com/@DataTraders/videos"),
-    ("EverythingMoney", "https://www.youtube.com/@EverythingMoney/videos"),
-    ("ramitsethi", "https://www.youtube.com/@ramitsethi/videos"),
-    ("JosephCarlsonShow", "https://www.youtube.com/@JosephCarlsonShow/videos"),
-    ("Live.Traders", "https://www.youtube.com/@Live.Traders/videos"),
-    ("tradingwithrayner", "https://www.youtube.com/@tradingwithrayner/videos"),
-    ("TheStockMarket", "https://www.youtube.com/@TheStockMarket/videos"),
-    ("TraderTVLive", "https://www.youtube.com/@TraderTVLive/videos"),
-    ("YueChen-x8n9s", "https://www.youtube.com/@YueChen-x8n9s/videos"),
-    ("MeiTouJun", "https://www.youtube.com/@MeiTouJun/videos"),
-]
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(PROJECT_ROOT))
+
+from summarizer.channel_catalog import QUANT_CHANNELS_WITH_OPTIONAL
+
+channels = QUANT_CHANNELS_WITH_OPTIONAL
 
 ydl_opts = {
     "extract_flat": True,

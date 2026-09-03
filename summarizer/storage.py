@@ -18,6 +18,39 @@ class StorageManager:
         conn.row_factory = sqlite3.Row
         return conn
 
+    def _row_to_record(self, row: sqlite3.Row) -> VideoRecord:
+        return VideoRecord(
+            video_id=row["video_id"],
+            channel=row["channel"],
+            title=row["title"],
+            upload_date=row["upload_date"],
+            duration=row["duration"] or "00:00",
+            status=ProcessingStatus(row["status"]),
+            transcript_source=row["transcript_source"],
+            report_path=row["report_path"],
+            error_message=row["error_message"],
+            created_at=row["created_at"],
+            updated_at=row["updated_at"],
+        )
+
+    def resolve_report_path(self, report_path: Optional[str]) -> Optional[Path]:
+        """Resolve a stored report path from both current and legacy records."""
+        if not report_path:
+            return None
+
+        path = Path(report_path)
+        if path.is_absolute():
+            return path
+
+        candidates = [
+            Path.cwd() / path,
+            self.db_path.parent.parent / path,
+        ]
+        for candidate in candidates:
+            if candidate.exists():
+                return candidate
+        return candidates[0]
+
     def _init_db(self):
         with self._get_connection() as conn:
             conn.execute("""
@@ -55,25 +88,23 @@ class StorageManager:
             row = cursor.fetchone()
             return row is not None
 
+    def is_report_available(self, video_id: str) -> bool:
+        """Return whether a completed record points to an existing report file."""
+        record = self.get_record(video_id)
+        return bool(
+            record
+            and record.status == ProcessingStatus.COMPLETED
+            and record.report_path
+            and self.resolve_report_path(record.report_path).is_file()
+        )
+
     def get_record(self, video_id: str) -> Optional[VideoRecord]:
         with self._get_connection() as conn:
             cursor = conn.execute("SELECT * FROM records WHERE video_id = ?", (video_id,))
             row = cursor.fetchone()
             if not row:
                 return None
-            return VideoRecord(
-                video_id=row["video_id"],
-                channel=row["channel"],
-                title=row["title"],
-                upload_date=row["upload_date"],
-                duration=row["duration"] or "00:00",
-                status=ProcessingStatus(row["status"]),
-                transcript_source=row["transcript_source"],
-                report_path=row["report_path"],
-                error_message=row["error_message"],
-                created_at=row["created_at"],
-                updated_at=row["updated_at"]
-            )
+            return self._row_to_record(row)
 
     def save_record(self, record: VideoRecord):
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -117,19 +148,7 @@ class StorageManager:
             cursor = conn.execute("SELECT * FROM records ORDER BY updated_at DESC")
             records = []
             for row in cursor.fetchall():
-                records.append(VideoRecord(
-                    video_id=row["video_id"],
-                    channel=row["channel"],
-                    title=row["title"],
-                    upload_date=row["upload_date"],
-                    duration=row["duration"] or "00:00",
-                    status=ProcessingStatus(row["status"]),
-                    transcript_source=row["transcript_source"],
-                    report_path=row["report_path"],
-                    error_message=row["error_message"],
-                    created_at=row["created_at"],
-                    updated_at=row["updated_at"]
-                ))
+                records.append(self._row_to_record(row))
             return records
 
     def get_channel_records(self, channel: str) -> List[VideoRecord]:
@@ -140,17 +159,5 @@ class StorageManager:
             )
             records = []
             for row in cursor.fetchall():
-                records.append(VideoRecord(
-                    video_id=row["video_id"],
-                    channel=row["channel"],
-                    title=row["title"],
-                    upload_date=row["upload_date"],
-                    duration=row["duration"] or "00:00",
-                    status=ProcessingStatus(row["status"]),
-                    transcript_source=row["transcript_source"],
-                    report_path=row["report_path"],
-                    error_message=row["error_message"],
-                    created_at=row["created_at"],
-                    updated_at=row["updated_at"]
-                ))
+                records.append(self._row_to_record(row))
             return records

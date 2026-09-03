@@ -1,4 +1,4 @@
-from summarizer.utils import extract_video_id, is_channel_url, sanitize_filename, format_seconds, format_timestamp
+from summarizer.utils import extract_video_id, is_channel_url, sanitize_filename, format_seconds, format_timestamp, escape_markdown_cell
 
 
 def test_extract_video_id():
@@ -14,6 +14,8 @@ def test_is_channel_url():
     assert is_channel_url("https://m.youtube.com/@AlgorithmTradingIn/videos")
     assert is_channel_url("https://www.youtube.com/channel/UC1234567890")
     assert not is_channel_url("https://www.youtube.com/watch?v=dQw4w9WgXcQ")
+    assert not is_channel_url("https://www.youtube.com/watch?v=dQw4w9WgXcQ&list=PL123")
+    assert is_channel_url("https://www.youtube.com/playlist?list=PL123")
 
 
 def test_sanitize_filename():
@@ -30,3 +32,7 @@ def test_format_seconds():
 def test_format_timestamp():
     assert format_timestamp(75.5) == "[00:01:15]"
     assert format_timestamp(3605) == "[01:00:05]"
+
+
+def test_escape_markdown_cell():
+    assert escape_markdown_cell("Title | with\nnewline") == "Title \\| with newline"

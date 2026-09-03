@@ -26,3 +26,6 @@ yt-quant = "summarizer.cli:app"
 
 [tool.setuptools.packages.find]
 include = ["summarizer*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

@@ -33,3 +33,21 @@ def test_storage_crud(tmp_path: Path):
 
     ch_records = storage.get_channel_records("QuantHub")
     assert len(ch_records) == 1
+
+
+def test_report_availability_requires_existing_file(tmp_path: Path):
+    db_file = tmp_path / "test_records.db"
+    storage = StorageManager(db_file)
+    report = tmp_path / "report.md"
+    storage.save_record(VideoRecord(
+        video_id="vid002",
+        channel="QuantHub",
+        title="A report",
+        status=ProcessingStatus.COMPLETED,
+        report_path=str(report),
+    ))
+
+    assert storage.is_processed("vid002")
+    assert not storage.is_report_available("vid002")
+    report.write_text("# report", encoding="utf-8")
+    assert storage.is_report_available("vid002")

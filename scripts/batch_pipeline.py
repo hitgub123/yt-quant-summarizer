@@ -19,25 +19,14 @@ from summarizer.core import QuantSummarizer
 from summarizer.models import VideoMetadata, TranscriptResult, ProcessingStatus, VideoRecord
 from summarizer.classifier import is_investment_related
 from summarizer.utils import sanitize_filename
+from summarizer.channel_catalog import QUANT_CHANNELS_WITH_OPTIONAL
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("batch_pipeline")
 
 CHANNELS = [
-    {"name": "AlgorithmTradingIn", "url": "https://www.youtube.com/@AlgorithmTradingIn"},
-    {"name": "AndreiJikh", "url": "https://www.youtube.com/@AndreiJikh"},
-    {"name": "ARKInvest2015", "url": "https://www.youtube.com/@ARKInvest2015"},
-    {"name": "MrBoKong", "url": "https://www.youtube.com/@MrBoKong"},
-    {"name": "DataTraders", "url": "https://www.youtube.com/@DataTraders"},
-    {"name": "EverythingMoney", "url": "https://www.youtube.com/@EverythingMoney"},
-    {"name": "ramitsethi", "url": "https://www.youtube.com/@ramitsethi"},
-    {"name": "JosephCarlsonShow", "url": "https://www.youtube.com/@JosephCarlsonShow"},
-    {"name": "Live.Traders", "url": "https://www.youtube.com/@Live.Traders"},
-    {"name": "tradingwithrayner", "url": "https://www.youtube.com/@tradingwithrayner"},
-    {"name": "TheStockMarket", "url": "https://www.youtube.com/@TheStockMarket"},
-    {"name": "TraderTVLive", "url": "https://www.youtube.com/@TraderTVLive"},
-    {"name": "YueChen-x8n9s", "url": "https://www.youtube.com/@YueChen-x8n9s"},
-    {"name": "MeiTouJun", "url": "https://www.youtube.com/@MeiTouJun"},
+    {"name": name, "url": url.removesuffix("/videos")}
+    for name, url in QUANT_CHANNELS_WITH_OPTIONAL
 ]
 
 TARGET_VIDEOS_PER_CHANNEL = 10

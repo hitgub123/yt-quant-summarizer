@@ -24,6 +24,10 @@ class Settings(BaseSettings):
     )
     AUTO_CLEAN_AUDIO: bool = Field(default=True, alias="AUTO_CLEAN_AUDIO")
     MAX_RETRIES: int = Field(default=3, alias="MAX_RETRIES")
+    SUBTITLE_MIN_REQUEST_INTERVAL: float = Field(default=5.0, alias="SUBTITLE_MIN_REQUEST_INTERVAL")
+    SUBTITLE_MAX_RETRIES: int = Field(default=0, alias="SUBTITLE_MAX_RETRIES")
+    SUBTITLE_BACKOFF_SECONDS: float = Field(default=3.0, alias="SUBTITLE_BACKOFF_SECONDS")
+    SUBTITLE_COOLDOWN_SECONDS: float = Field(default=86400.0, alias="SUBTITLE_COOLDOWN_SECONDS")
 
     @property
     def language_list(self) -> List[str]:

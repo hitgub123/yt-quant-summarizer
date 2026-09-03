@@ -6,7 +6,7 @@ from typing import List, Dict, Optional
 import yaml
 
 from summarizer.models import VideoMetadata, VideoRecord, ProcessingStatus
-from summarizer.utils import sanitize_filename
+from summarizer.utils import escape_markdown_cell, sanitize_filename
 from summarizer.storage import StorageManager
 
 
@@ -29,7 +29,9 @@ class IndexBuilder:
 
         date_prefix = metadata.upload_date or datetime.now().strftime("%Y-%m-%d")
         safe_title = sanitize_filename(metadata.title, max_length=60)
-        file_name = f"{date_prefix}_{safe_title}.md"
+        # The video id prevents two videos with the same title/date from
+        # overwriting each other's reports.
+        file_name = f"{date_prefix}_{safe_title}_{metadata.video_id}.md"
         report_path = channel_dir / file_name
 
         all_tags = ["quant", "trading", "strategy", sanitize_filename(metadata.channel).lower()]
@@ -81,7 +83,10 @@ class IndexBuilder:
             file_name = Path(r.report_path).name if r.report_path else ""
             report_link = f"[{r.title}]({file_name})" if file_name else r.title
             video_link = f"[观看 YouTube](https://www.youtube.com/watch?v={r.video_id})"
-            lines.append(f"| {date_str} | {r.title} | {r.duration} | {report_link} | {video_link} |")
+            lines.append(
+                f"| {escape_markdown_cell(date_str)} | {escape_markdown_cell(r.title)} | "
+                f"{escape_markdown_cell(r.duration)} | {report_link} | {video_link} |"
+            )
 
         lines.append("")
         lines.append(f"---")
@@ -135,7 +140,10 @@ class IndexBuilder:
             ch_dir = sanitize_filename(r.channel)
             file_name = Path(r.report_path).name if r.report_path else ""
             rel_link = f"[{r.title}]({ch_dir}/{file_name})" if file_name else r.title
-            lines.append(f"| {r.channel} | {r.upload_date or '未知'} | {r.title} | {r.duration} | {rel_link} |")
+            lines.append(
+                f"| {escape_markdown_cell(r.channel)} | {escape_markdown_cell(r.upload_date or '未知')} | "
+                f"{escape_markdown_cell(r.title)} | {escape_markdown_cell(r.duration)} | {rel_link} |"
+            )
 
         lines.append("")
         lines.append("---")

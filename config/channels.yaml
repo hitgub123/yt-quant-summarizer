@@ -1,0 +1,50 @@
+# Central catalogue of channel targets used by the batch and probe scripts.
+# Edit this file to add, remove, or rename a target; do not edit each script.
+
+quant:
+  - name: Algorithm Trading
+    url: https://www.youtube.com/@AlgorithmTradingIn/videos
+  - name: Andrei Jikh
+    url: https://www.youtube.com/@AndreiJikh/videos
+  - name: ARK Invest
+    url: https://www.youtube.com/@ARKInvest2015/videos
+  - name: MrBoKong (波空)
+    url: https://www.youtube.com/@MrBoKong/videos
+  - name: DataTraders
+    url: https://www.youtube.com/@DataTraders/videos
+  - name: EverythingMoney
+    url: https://www.youtube.com/@EverythingMoney/videos
+  - name: Ramit Sethi
+    url: https://www.youtube.com/@ramitsethi/videos
+  - name: Joseph Carlson
+    url: https://www.youtube.com/@JosephCarlsonShow/videos
+  - name: Live Traders
+    url: https://www.youtube.com/@Live.Traders/videos
+  - name: Trading with Rayner
+    url: https://www.youtube.com/@tradingwithrayner/videos
+  - name: TraderTV Live
+    url: https://www.youtube.com/@TraderTVLive/videos
+  - name: Yue Chen
+    url: https://www.youtube.com/@YueChen-x8n9s/videos
+  - name: 美投君
+    url: https://www.youtube.com/@MeiTouJun/videos
+
+optional_quant:
+  - name: TheStockMarket
+    url: https://www.youtube.com/@TheStockMarket/videos
+
+ai:
+  - name: Andrej Karpathy
+    url: https://www.youtube.com/@AndrejKarpathy/videos
+  - name: Dave Ebbelaar
+    url: https://www.youtube.com/@daveebbelaar/videos
+  - name: Jeff Su
+    url: https://www.youtube.com/@JeffSu/videos
+  - name: Tina Huang
+    url: https://www.youtube.com/@TinaHuang1/videos
+  - name: Google Cloud Tech
+    url: https://www.youtube.com/@googlecloudtech/videos
+  - name: Matt Wolfe (mreflow)
+    url: https://www.youtube.com/@mreflow/videos
+  - name: AI Explained
+    url: https://www.youtube.com/@aiexplained-official/videos

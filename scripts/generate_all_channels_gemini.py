@@ -23,6 +23,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from summarizer.utils import sanitize_filename
+from summarizer.channel_catalog import QUANT_CHANNELS_WITH_OPTIONAL
 
 logging.basicConfig(
     level=logging.INFO,
@@ -38,22 +39,7 @@ OUTPUT_DIR = PROJECT_ROOT / "output"
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 # 14 个目标博主/频道
-CHANNELS = [
-    ("Algorithm Trading", "https://www.youtube.com/@AlgorithmTradingIn/videos"),
-    ("Andrei Jikh", "https://www.youtube.com/@AndreiJikh/videos"),
-    ("ARK Invest", "https://www.youtube.com/@ARKInvest2015/videos"),
-    ("MrBoKong (波空)", "https://www.youtube.com/@MrBoKong/videos"),
-    ("DataTraders", "https://www.youtube.com/@DataTraders/videos"),
-    ("EverythingMoney", "https://www.youtube.com/@EverythingMoney/videos"),
-    ("Ramit Sethi", "https://www.youtube.com/@ramitsethi/videos"),
-    ("Joseph Carlson", "https://www.youtube.com/@JosephCarlsonShow/videos"),
-    ("Live Traders", "https://www.youtube.com/@Live.Traders/videos"),
-    ("Trading with Rayner", "https://www.youtube.com/@tradingwithrayner/videos"),
-    ("TheStockMarket", "https://www.youtube.com/@TheStockMarket/videos"),
-    ("TraderTV Live", "https://www.youtube.com/@TraderTVLive/videos"),
-    ("Yue Chen", "https://www.youtube.com/@YueChen-x8n9s/videos"),
-    ("美投君", "https://www.youtube.com/@MeiTouJun/videos"),
-]
+CHANNELS = QUANT_CHANNELS_WITH_OPTIONAL
 
 
 def load_gemini_client() -> genai.Client:

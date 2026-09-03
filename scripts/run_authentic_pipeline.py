@@ -1,8 +1,12 @@
 #!/usr/bin/env python3
 """
-Authentic Quant Report Pipeline
-完全基于 100% 真实字幕逐字稿提炼 7 维度机构级量化/交易研报。
-内置 8~15 秒安全随机间隔、30秒批次冷却以及 429 自适应退避机制。
+真实高精度视频研报流水线 (Authentic & Concise Video Summarizer)
+设计核心：
+1. 100% 真实数据来源：优先读取本地已缓存的字幕 (full_text) 与完整 metadata；
+   若未缓存则通过 SubtitleFetcher / yt-dlp 抓取真实字幕与章节简介。
+2. 绝对杜绝假标题与虚构内容：严格使用官方元数据与视频逐字稿作为 LLM 输入。
+3. 风格严格遵循用户要求：精准、简洁、高信噪比，绝不强塞无关代码。
+4. 单视频独立隔离处理：逐篇生成并落盘，绝不合并请求，杜绝串台错乱。
 """
 
 from __future__ import annotations
@@ -11,187 +15,292 @@ import sys
 import re
 import json
 import time
-import random
 import logging
+import subprocess
 from pathlib import Path
 from typing import Dict, Any, List, Optional
-import yt_dlp
 import requests
+from google import genai
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from summarizer.subtitle_fetcher import SubtitleFetcher
 from summarizer.utils import sanitize_filename
+from summarizer.subtitle_fetcher import SubtitleFetcher
 
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
     handlers=[
         logging.StreamHandler(sys.stdout),
-        logging.FileHandler(PROJECT_ROOT / "authentic_pipeline.log", encoding="utf-8")
+        logging.FileHandler(PROJECT_ROOT / "authentic_generation.log", encoding="utf-8")
     ]
 )
 logger = logging.getLogger("AuthenticPipeline")
 
 OUTPUT_DIR = PROJECT_ROOT / "output"
+TRANSCRIPTS_DIR = OUTPUT_DIR / ".transcripts"
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+TRANSCRIPTS_DIR.mkdir(parents=True, exist_ok=True)
 
-CHANNELS = [
-    ("Algorithm Trading", "https://www.youtube.com/@AlgorithmTradingIn/videos"),
-    ("Andrei Jikh", "https://www.youtube.com/@AndreiJikh/videos"),
-    ("ARK Invest", "https://www.youtube.com/@ARKInvest2015/videos"),
-    ("MrBoKong (波空)", "https://www.youtube.com/@MrBoKong/videos"),
-    ("DataTraders", "https://www.youtube.com/@DataTraders/videos"),
-    ("EverythingMoney", "https://www.youtube.com/@EverythingMoney/videos"),
-    ("Ramit Sethi", "https://www.youtube.com/@ramitsethi/videos"),
-    ("Joseph Carlson", "https://www.youtube.com/@JosephCarlsonShow/videos"),
-    ("Live Traders", "https://www.youtube.com/@Live.Traders/videos"),
-    ("Trading with Rayner", "https://www.youtube.com/@tradingwithrayner/videos"),
-    ("TraderTV Live", "https://www.youtube.com/@TraderTVLive/videos"),
-    ("Yue Chen", "https://www.youtube.com/@YueChen-x8n9s/videos"),
-    ("美投君", "https://www.youtube.com/@MeiTouJun/videos"),
+# 用户指定的重点 AI 频道列表
+AI_CHANNELS = [
+    ("Andrej Karpathy", "https://www.youtube.com/@AndrejKarpathy/videos"),
+    ("Dave Ebbelaar", "https://www.youtube.com/@daveebbelaar/videos"),
+    ("Jeff Su", "https://www.youtube.com/@JeffSu/videos"),
+    ("Tina Huang", "https://www.youtube.com/@TinaHuang1/videos"),
+    ("Google Cloud Tech", "https://www.youtube.com/@googlecloudtech/videos"),
+    ("Matt Wolfe (mreflow)", "https://www.youtube.com/@mreflow/videos"),
+    ("AI Explained", "https://www.youtube.com/@aiexplained-official/videos"),
+]
+
+# 官方当前支持的最佳模型池 (优先可用性)
+MODEL_POOL = [
+    "gemini-3.5-flash",
+    "gemini-3.6-flash",
+    "gemini-flash-latest",
 ]
 
 
-def get_real_publish_date(video_id: str) -> str:
-    """从 YouTube HTML 精准提取真实的发布日期 (YYYY-MM-DD)"""
-    url = f"https://www.youtube.com/watch?v={video_id}"
+def load_gemini_client() -> genai.Client:
+    api_key = os.getenv("GEMINI_API_KEY")
+    if not api_key:
+        env_file = PROJECT_ROOT / ".env"
+        if env_file.exists():
+            with open(env_file) as f:
+                for line in f:
+                    if line.startswith("GEMINI_API_KEY="):
+                        api_key = line.strip().split("=", 1)[1].strip("\"'")
+    if not api_key:
+        raise ValueError("未找到 GEMINI_API_KEY，请在 .env 中配置！")
+    return genai.Client(api_key=api_key)
+
+
+def get_channel_videos(channel_url: str, limit: int = 25) -> List[Dict[str, Any]]:
+    """使用官方 yt-dlp flat-playlist 准确拉取频道视频列表（杜绝网页正则匹配）"""
+    cmd = [
+        str(PROJECT_ROOT / ".venv" / "bin" / "yt-dlp"),
+        "--flat-playlist",
+        "-j",
+        channel_url,
+        "--playlist-end",
+        str(limit)
+    ]
+    entries = []
     try:
-        resp = requests.get(url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}, timeout=10)
-        m = re.search(r'"datePublished"\s*:\s*"(\d{4}-\d{2}-\d{2})"', resp.text)
-        if m:
-            return m.group(1)
-        m2 = re.search(r'itemprop="datePublished"\s+content="(\d{4}-\d{2}-\d{2})"', resp.text)
-        if m2:
-            return m2.group(1)
-        m3 = re.search(r'uploadDate"\s*:\s*"(\d{4}-\d{2}-\d{2})"', resp.text)
-        if m3:
-            return m3.group(1)
+        res = subprocess.run(cmd, capture_output=True, text=True, timeout=40)
+        seen_ids = set()
+        for line in res.stdout.strip().split("\n"):
+            if not line.strip():
+                continue
+            try:
+                data = json.loads(line.strip())
+                vid = data.get("id") or data.get("url")
+                title = data.get("title", f"Video {vid}")
+                if vid and vid not in seen_ids:
+                    seen_ids.add(vid)
+                    # 格式化 upload_date
+                    up_date = str(data.get("upload_date") or "")
+                    if len(up_date) == 8:
+                        pub_date = f"{up_date[:4]}-{up_date[4:6]}-{up_date[6:]}"
+                    else:
+                        pub_date = time.strftime("%Y-%m-%d")
+
+                    entries.append({
+                        "video_id": vid,
+                        "title": title,
+                        "pub_date": pub_date,
+                        "url": f"https://www.youtube.com/watch?v={vid}"
+                    })
+            except Exception:
+                pass
     except Exception as e:
-        logger.debug(f"获取日期失败 ({video_id}): {e}")
-    return time.strftime("%Y-%m-%d")
+        logger.error(f"提取频道视频失败 ({channel_url}): {e}")
+    return entries
 
 
-def generate_quant_report(metadata: Dict[str, Any], transcript: Dict[str, Any]) -> str:
+def get_video_content(video_id: str, channel_name: str) -> Dict[str, Any]:
     """
-    根据 100% 真实字幕逐字稿提炼 7 维度专业量化/交易研报
+    获取视频真实内容：
+    1. 优先读取 output/.transcripts/{channel_dir}/{video_id}.json 缓存；
+    2. 若未缓存，通过 SubtitleFetcher 尝试抓取真实字幕并写入缓存；
+    3. 若无法抓取字幕，通过 yt-dlp 拉取完整 Description (含章节时间戳 Chapters)。
     """
-    title = metadata.get("title", "")
-    video_id = metadata.get("video_id", "")
-    channel = metadata.get("channel", "")
-    pub_date = metadata.get("publish_date", "2026-08-01")
-    url = metadata.get("url", f"https://www.youtube.com/watch?v={video_id}")
-    full_text = transcript.get("full_text", "").strip()
-    lang = transcript.get("language", "en")
-    source = transcript.get("source", "youtube_verified_subtitles")
+    ch_slug = sanitize_filename(channel_name)
+    cached_file = TRANSCRIPTS_DIR / ch_slug / f"{video_id}.json"
+    
+    # 检查本地缓存
+    if cached_file.exists():
+        try:
+            with open(cached_file, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                meta = data.get("metadata", {})
+                trans = data.get("transcript", {})
+                full_text = trans.get("full_text", "")
+                if full_text:
+                    logger.info(f"    📖 成功读取本地真实字幕缓存 ({len(full_text)} 字符)")
+                    return {
+                        "title": meta.get("title", ""),
+                        "pub_date": meta.get("upload_date", ""),
+                        "description": meta.get("description", ""),
+                        "full_text": full_text,
+                        "has_transcript": True
+                    }
+        except Exception as e:
+            logger.debug(f"读取缓存异常 ({cached_file}): {e}")
 
-    # 提取字幕中的关键词和原话片段
-    sample_quote = full_text[:600].replace("\n", " ") if len(full_text) > 600 else full_text
+    # 尝试抓取真实字幕
+    fetcher = SubtitleFetcher()
+    t_data = fetcher.fetch_transcript(video_id)
+    full_text = t_data.get("full_text", "") if t_data else ""
+    
+    # 抓取 metadata 与 description
+    cmd = [
+        str(PROJECT_ROOT / ".venv" / "bin" / "yt-dlp"),
+        "-j",
+        f"https://www.youtube.com/watch?v={video_id}"
+    ]
+    meta = {}
+    try:
+        res = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
+        if res.stdout.strip():
+            meta = json.loads(res.stdout.strip())
+    except Exception as e:
+        logger.debug(f"yt-dlp 获取详情异常 ({video_id}): {e}")
 
-    report = f"""# 📊 【量化/交易研报】{title}
+    title = meta.get("title", "")
+    up_date = str(meta.get("upload_date") or "")
+    pub_date = f"{up_date[:4]}-{up_date[4:6]}-{up_date[6:]}" if len(up_date) == 8 else time.strftime("%Y-%m-%d")
+    description = meta.get("description", "")
 
-- **分析机构/博主**：`{channel}`
-- **视频发布日期**：`{pub_date}`
-- **原始视频链接**：[YouTube 视频]({url})
-- **逐字稿语种**：`{lang}`
-- **数据来源**：100% 真实字幕逐字稿 (`{source}`)，字符数: {len(full_text)}
+    # 保存缓存
+    if full_text:
+        cached_dir = TRANSCRIPTS_DIR / ch_slug
+        cached_dir.mkdir(parents=True, exist_ok=True)
+        with open(cached_file, "w", encoding="utf-8") as cf:
+            json.dump({
+                "metadata": {
+                    "video_id": video_id,
+                    "title": title,
+                    "channel": channel_name,
+                    "upload_date": pub_date,
+                    "description": description,
+                    "url": f"https://www.youtube.com/watch?v={video_id}"
+                },
+                "transcript": {
+                    "video_id": video_id,
+                    "full_text": full_text
+                }
+            }, cf, ensure_ascii=False, indent=2)
+        logger.info(f"    💾 新增字幕缓存: {cached_file.name} ({len(full_text)} 字符)")
 
----
+    return {
+        "title": title,
+        "pub_date": pub_date,
+        "description": description,
+        "full_text": full_text,
+        "has_transcript": bool(full_text)
+    }
 
-## 🎯 一、核心投资观点与交易假设 (Core Investment Thesis & Hypotheses)
-> 严格基于视频真实逐字稿提炼博主的核心论点。
 
-- **核心主题**：{title}
-- **博主核心论述提炼**：
-  - 基于真实视频演讲内容，博主深入探讨了该交易策略/资产配置的底层逻辑与市场背景。
-  - **逐字稿关键原话摘要**：
-    > “{sample_quote}...”
+def generate_single_report(client: genai.Client, video_info: Dict[str, Any], channel_name: str) -> str:
+    """基于真实内容生成单篇极简、精准、高信噪比研报"""
+    vid = video_info["video_id"]
+    title = video_info["title"]
+    pub_date = video_info["pub_date"]
+    url = video_info["url"]
+    full_text = video_info.get("full_text", "")
+    description = video_info.get("description", "")
 
----
-
-## 📈 二、涉及标的资产与适用市场环境 (Target Assets & Market Regime)
-- **分析标的**：视频重点提及的股票、期权、加密资产或指数资产。
-- **适用行情状态**：
-  - 适用于趋势跟踪、动量突破或震荡筑底行情；
-  - 依赖当前市场的宏观流动性与波动率结构。
-
----
-
-## 🛠️ 三、交易指标与关键触发逻辑 (Key Technical/Quantitative Signals)
-- **入场买入信号**：
-  - 基于博主在视频中强调的技术形态、均线交叉、量价配合或基本面支撑位；
-- **出场卖出/止盈信号**：
-  - 达到预设盈亏比目标位、阻力位反转或量化离场触发条件。
-
----
-
-## 🛡️ 四、资金管理与风控止损规则 (Risk Management & Position Sizing)
-- **止损保护**：严格执行关键结构破位止损，单笔交易风险敞口建议控制在总账户资金的 1%~2%；
-- **仓位管理**：采用分批建仓与金字塔式加仓策略，避免极端行情下重仓回撤。
-
----
-
-## 📊 五、历史表现与统计数据 (Historical Performance & Evidence)
-- **数据披露说明**：
-  - *注：若博主在视频发言中未提供量化回测的精确夏普比率、胜率或最大回撤统计表格，本研报如实标记为“博主未在视频中披露量化回测统计数据”，坚决杜绝捏造任何虚假数据。*
-
----
-
-## 💻 六、量化回测与指标实现示例 (Quantitative Implementation Code)
-```python
-# 基于视频交易逻辑构建的量化原型参考实现
-import pandas as pd
-import numpy as np
-
-def run_strategy(df: pd.DataFrame) -> pd.DataFrame:
-    \"\"\"
-    基于视频核心逻辑计算量化买卖信号
-    \"\"\"
-    df = df.copy()
-    # 示例均线与突破逻辑
-    df['SMA_20'] = df['close'].rolling(20).mean()
-    df['SMA_50'] = df['close'].rolling(50).mean()
-    df['Signal'] = np.where(df['SMA_20'] > df['SMA_50'], 1, 0)
-    df['Position'] = df['Signal'].diff()
-    return df
-```
-
----
-
-## ⚠️ 七、策略局限性与实盘失效风险 (Limitations & Risk Disclaimers)
-1. **滑点与冲击成本**：实盘交易中受订单簿深度影响，可能存在执行滑点；
-2. **过拟合与黑天鹅风险**：历史形态在宏观突发事件面前可能短期钝化；
-3. **免责声明**：本研报仅为公开视频内容之量化结构化提炼，不构成任何直接投资买卖建议。
+    # 构造实际内容上下文（优先字幕，截取关键部分或全文）
+    if full_text:
+        # 如果文本超长，截取前 35000 字符（涵盖 1 小时以上长篇对话的全部核心）
+        content_block = f"""【视频真实字幕逐字稿节选】：
+{full_text[:35000]}
 """
-    return report
+    else:
+        content_block = f"""【视频官方大纲与详细简介】：
+{description[:8000]}
+"""
+
+    prompt = f"""你是一名顶级技术分析师与高质量内容总结专家。
+请基于以下 YouTube 视频的【真实逐字稿/真实大纲内容】，撰写一份【准确、简洁、高信噪比的内容总结报告】。
+
+【视频基本信息】：
+- 视频标题：{title}
+- 创作者/频道：{channel_name}
+- 发布日期：{pub_date}
+- 原视频链接：{url}
+
+{content_block}
+
+【严格输出准则】：
+1. **绝对忠实于视频真实内容**：严禁主观臆造！视频讲了什么就总结什么，视频没讲的坚决不提。
+2. **严禁强行编造代码**：仅当视频中创作者真正展示或编写了代码时，才提取相关代码片段；若视频是工具介绍、行业趋势、认知思考或工作流，严禁编造任何无关伪代码！
+3. **极简、高信噪比**：去除所有客套话与废话，语言高度凝练，突出核心干货与实战价值。
+
+请严格按照以下 Markdown 格式输出：
+
+# 🎬 {title}
+
+- **创作者**：`{channel_name}` | **发布日期**：`{pub_date}` | **原视频链接**：[YouTube 视频]({url})
+
+---
+
+### 📌 一句话核心主旨 (TL;DR)
+（用 1~2 句话极简概括：视频核心讲了什么？解决了什么问题或传达了什么核心观点？）
+
+### 🔍 核心要点精炼拆解 (Key Takeaways)
+（分 3~5 个重点模块，用高度凝练的要点清单，清晰拆解视频中讲解的核心原理、工具对比、技术细节或论点链条）
+
+### 💡 实操建议与落地启示 (Actionable Insights)
+（提炼博主给出的最实用、最具实操价值的建议、操作步骤、配置推荐或决策思路）
+
+### ⚠️ 局限性与注意事项 (Caveats & Limitations)
+（博主提及的潜在局限性、适用边界或避坑提醒。若无特殊限制可简要注明）
+"""
+
+    last_err = None
+    for model_name in MODEL_POOL:
+        try:
+            logger.info(f"    🤖 正在调用模型 [{model_name}] 生成准确研报...")
+            response = client.models.generate_content(
+                model=model_name,
+                contents=prompt
+            )
+            if response.text and response.text.strip():
+                return response.text.strip()
+        except Exception as me:
+            last_err = me
+            logger.warning(f"    ⚠️ 模型 [{model_name}] 调用异常: {me}，尝试切换下一个可用模型...")
+            time.sleep(2.0)
+
+    raise last_err or RuntimeError("所有可用模型均被限制")
 
 
 def update_indexes():
-    """更新所有频道的 INDEX.md 与根目录 INDEX.md"""
+    """更新所有频道 INDEX.md 与全局 INDEX.md"""
     global_index_path = OUTPUT_DIR / "INDEX.md"
     channels_summary = []
     total_reports = 0
 
-    for ch_name, _ in CHANNELS:
-        ch_dir = OUTPUT_DIR / sanitize_filename(ch_name)
-        if not ch_dir.exists():
-            continue
+    subdirs = sorted([d for d in OUTPUT_DIR.iterdir() if d.is_dir() and not d.name.startswith(".")])
+
+    for ch_dir in subdirs:
         reports = sorted(list(ch_dir.glob("*.md")), reverse=True)
         reports = [r for r in reports if r.name != "INDEX.md"]
         if not reports:
             continue
 
-        # 生成频道 INDEX.md
+        ch_name = ch_dir.name.replace("_", " ")
         ch_index_path = ch_dir / "INDEX.md"
         ch_lines = [
-            f"# 📚 {ch_name} - 研报索引列表",
-            f"\n> 累计提炼真实量化研报：`{len(reports)}` 篇\n",
-            "| 发布日期 | 视频标题 | 研报文档 |",
+            f"# 📚 {ch_name} - 精准研报索引",
+            f"\n> 累计提炼真实报告：`{len(reports)}` 篇\n",
+            "| 发布日期 | 视频标题 | 报告文档 |",
             "| :--- | :--- | :--- |",
         ]
         for r in reports:
-            # 格式: YYYY-MM-DD_videoid_title.md
             parts = r.stem.split("_", 2)
             date_str = parts[0] if len(parts) > 0 else "-"
             title_str = parts[2] if len(parts) > 2 else r.stem
@@ -203,127 +312,98 @@ def update_indexes():
         channels_summary.append((ch_name, len(reports), ch_dir.name))
         total_reports += len(reports)
 
-    # 生成全局 INDEX.md
     g_lines = [
-        "# 📈 YouTube 顶级交易/量化策略研报知识库 (100% 真实逐字稿)",
-        f"\n> 全球收录博主：`{len(channels_summary)}` 个频道 | 累计研报总数：`{total_reports}` 篇\n",
-        "## 📁 各博主研报导航",
-        "| 频道/博主 | 研报数量 | 研报目录 |",
+        "# 🌐 YouTube 顶级 AI 技术与量化策略精炼知识库 (真实数据驱动)",
+        f"\n> 收录频道总数：`{len(channels_summary)}` 个 | 累计精准报告：`{total_reports}` 篇\n",
+        "## 📁 各创作者研报导航",
+        "| 创作者 / 频道 | 报告数量 | 报告目录 |",
         "| :--- | :---: | :--- |",
     ]
     for c_name, c_cnt, c_dir in channels_summary:
-        g_lines.append(f"| **{c_name}** | `{c_cnt}` 篇 | [查看研报列表](./{c_dir}/INDEX.md) |")
+        g_lines.append(f"| **{c_name}** | `{c_cnt}` 篇 | [查看报告列表](./{c_dir}/INDEX.md) |")
 
     with open(global_index_path, "w", encoding="utf-8") as gif:
         gif.write("\n".join(g_lines) + "\n")
     logger.info("📑 全局与频道索引 INDEX.md 更新完成！")
 
 
-def run_pipeline(channel_limit: int = 14, videos_per_channel: int = 10):
-    fetcher = SubtitleFetcher()
+def run_pipeline():
+    client = load_gemini_client()
     logger.info("==================================================================")
-    logger.info("🚀 启动 100% 真实字幕量化研报自动化流水线 (带安全防封频控)")
+    logger.info("🚀 启动【真实数据驱动】极简精准研报流水线 (单视频严格隔离模式)")
     logger.info("==================================================================")
 
-    total_processed = 0
-    consecutive_success = 0
+    total_done = 0
 
-    for ch_idx, (ch_name, ch_url) in enumerate(CHANNELS[:channel_limit], 1):
-        logger.info(f"\n[{ch_idx}/{len(CHANNELS)}] 正在处理频道: {ch_name} ({ch_url})")
-
-        ydl_opts = {
-            "extract_flat": True,
-            "skip_download": True,
-            "quiet": True,
-            "playlistend": videos_per_channel,
-        }
-        entries = []
-        try:
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                info = ydl.extract_info(ch_url, download=False)
-                entries = [e for e in info.get("entries", []) if e][:videos_per_channel]
-        except Exception as e:
-            logger.error(f"获取频道视频列表失败: {e}")
-            continue
-
+    for ch_idx, (ch_name, ch_url) in enumerate(AI_CHANNELS, 1):
+        logger.info(f"\n[{ch_idx}/{len(AI_CHANNELS)}] 正在全量获取频道视频: {ch_name}")
         ch_dir = OUTPUT_DIR / sanitize_filename(ch_name)
         ch_dir.mkdir(parents=True, exist_ok=True)
-        transcript_cache_dir = OUTPUT_DIR / ".transcripts" / sanitize_filename(ch_name)
-        transcript_cache_dir.mkdir(parents=True, exist_ok=True)
 
-        for v_idx, entry in enumerate(entries, 1):
-            video_id = entry.get("id") or entry.get("url")
-            title = entry.get("title", f"Video {video_id}")
-            url = f"https://www.youtube.com/watch?v={video_id}"
+        existing_reports = list(ch_dir.glob("*.md"))
+        existing_ids = set()
+        for er in existing_reports:
+            parts = er.stem.split("_")
+            if len(parts) >= 2:
+                existing_ids.add(parts[1])
 
-            logger.info(f"  [{v_idx}/{len(entries)}] 抓取视频: {title[:32]} (ID: {video_id})")
+        videos = get_channel_videos(ch_url, limit=20)
+        logger.info(f"  🔍 频道已有: {len(existing_reports)} 篇，待处理视频: {len(videos) - len(existing_ids)} 个")
 
-            # 1. 抓取真实字幕
-            transcript_data = None
-            retry_count = 0
-            while retry_count < 2:
-                try:
-                    transcript_data = fetcher.fetch_transcript(video_id)
-                    break
-                except Exception as ex:
-                    ex_str = str(ex)
-                    if "429" in ex_str or "Too Many Requests" in ex_str or "IpBlocked" in ex_str:
-                        logger.warning(f"  🚨 遭遇临时频控 429！自动进入安全退避休眠 180 秒 (3分钟)...")
-                        time.sleep(180.0)
-                        retry_count += 1
-                    else:
-                        break
-
-            # 2. 安全随机休眠 8 ~ 15 秒
-            sleep_time = random.uniform(8.0, 15.0)
-            logger.info(f"  ⏳ 安全间隔休眠 {sleep_time:.2f} 秒...")
-            time.sleep(sleep_time)
-
-            if not transcript_data or not transcript_data.get("full_text"):
-                logger.warning(f"  ⚠️ 未获取到真实字幕，跳过研报生成（坚决不捏造虚假内容）")
+        for v_idx, v in enumerate(videos, 1):
+            vid = v["video_id"]
+            if vid in existing_ids:
                 continue
 
-            consecutive_success += 1
+            logger.info(f"  🎬 [{v_idx}/{len(videos)}] 正在处理: {v['title']} (ID: {vid})")
 
-            # 3. 每成功抓取 3 个视频，进行 30 秒批次长冷却
-            if consecutive_success % 3 == 0:
-                logger.info("  💤 触发批次保护，长冷却深度休眠 30 秒...")
-                time.sleep(30.0)
-
-            # 4. 获取真实发布日期
-            pub_date = get_real_publish_date(video_id)
-
-            # 5. 保存字幕缓存
-            task_data = {
-                "metadata": {
-                    "video_id": video_id,
-                    "title": title,
-                    "channel": ch_name,
-                    "channel_url": ch_url,
-                    "publish_date": pub_date,
-                    "url": url
-                },
-                "transcript": transcript_data
+            # 获取真实视频内容（优先本地字幕缓存）
+            content_data = get_video_content(vid, ch_name)
+            v_info = {
+                "video_id": vid,
+                "title": content_data["title"] or v["title"],
+                "pub_date": content_data["pub_date"] or v["pub_date"],
+                "url": v["url"],
+                "full_text": content_data["full_text"],
+                "description": content_data["description"]
             }
-            with open(transcript_cache_dir / f"{video_id}.json", "w", encoding="utf-8") as tf:
-                json.dump(task_data, tf, ensure_ascii=False, indent=2)
 
-            # 6. 生成并保存 7 维度研报
-            clean_title = sanitize_filename(title)[:45]
-            report_filename = f"{pub_date}_{video_id}_{clean_title}.md"
-            report_path = ch_dir / report_filename
+            # 单视频生成并写入磁盘
+            for retry in range(5):
+                try:
+                    report_text = generate_single_report(client, v_info, ch_name)
+                    clean_title = sanitize_filename(v_info["title"])[:45]
+                    filename = f"{v_info['pub_date']}_{vid}_{clean_title}.md"
+                    filepath = ch_dir / filename
 
-            report_content = generate_quant_report(task_data["metadata"], transcript_data)
-            with open(report_path, "w", encoding="utf-8") as rf:
-                rf.write(report_content)
+                    with open(filepath, "w", encoding="utf-8") as rf:
+                        rf.write(report_text)
 
-            logger.info(f"  🎉 成功生成 100% 真实量化研报: {report_filename}")
-            total_processed += 1
+                    logger.info(f"    🎉 成功生成精准报告: {filename}")
+                    existing_ids.add(vid)
+                    total_done += 1
+                    
+                    # 平稳间隔 8 秒满足免费频控
+                    time.sleep(8.0)
+                    break
+                except Exception as e:
+                    e_str = str(e)
+                    if "429" in e_str or "RESOURCE_EXHAUSTED" in e_str:
+                        delay_match = re.search(r'retryDelay[\'"]\s*:\s*[\'"]?(\d+)', e_str)
+                        wait_sec = int(delay_match.group(1)) + 5 if delay_match else 35
+                        logger.warning(f"    ⏳ 触发短时频控，休眠 {wait_sec} 秒后自动恢复 (重试 {retry+1}/5)...")
+                        time.sleep(wait_sec)
+                    else:
+                        logger.error(f"    ❌ 生成异常: {e}")
+                        time.sleep(5.0)
+                        break
 
-        update_indexes()
+            update_indexes()
 
-    logger.info(f"🏁 全流水线处理结束，累计生成真实研报: {total_processed} 篇！")
+        logger.info(f"✅ 频道 {ch_name} 处理完毕！")
+
+    logger.info(f"\n🏁 全部频道扫描结束！本次任务累计生成 {total_done} 篇全新研报！")
 
 
 if __name__ == "__main__":
-    run_pipeline(channel_limit=5, videos_per_channel=3)
+    run_pipeline()

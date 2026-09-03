@@ -19,25 +19,12 @@ sys.path.insert(0, str(PROJECT_ROOT))
 from summarizer.core import QuantSummarizer
 from summarizer.models import VideoMetadata, VideoRecord, ProcessingStatus
 from summarizer.utils import sanitize_filename
+from summarizer.channel_catalog import QUANT_CHANNELS
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("FullBatchPipeline")
 
-CHANNELS = [
-    ("Algorithm Trading", "https://www.youtube.com/@AlgorithmTradingIn/videos"),
-    ("Andrei Jikh", "https://www.youtube.com/@AndreiJikh/videos"),
-    ("ARK Invest", "https://www.youtube.com/@ARKInvest2015/videos"),
-    ("MrBoKong", "https://www.youtube.com/@MrBoKong/videos"),
-    ("DataTraders", "https://www.youtube.com/@DataTraders/videos"),
-    ("EverythingMoney", "https://www.youtube.com/@EverythingMoney/videos"),
-    ("Ramit Sethi", "https://www.youtube.com/@ramitsethi/videos"),
-    ("Joseph Carlson", "https://www.youtube.com/@JosephCarlsonShow/videos"),
-    ("Live Traders", "https://www.youtube.com/@Live.Traders/videos"),
-    ("Trading with Rayner", "https://www.youtube.com/@tradingwithrayner/videos"),
-    ("TraderTV Live", "https://www.youtube.com/@TraderTVLive/videos"),
-    ("Yue Chen", "https://www.youtube.com/@YueChen-x8n9s/videos"),
-    ("美投君", "https://www.youtube.com/@MeiTouJun/videos"),
-]
+CHANNELS = QUANT_CHANNELS
 
 
 def detect_quant_profile(channel: str, title: str, description: str) -> Dict[str, Any]:

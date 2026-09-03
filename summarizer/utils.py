@@ -36,6 +36,10 @@ def extract_video_id(url_or_id: str) -> Optional[str]:
 def is_channel_url(url: str) -> bool:
     """Check if URL points to a YouTube channel, handle, user, or playlist."""
     text = url.strip().lower()
+    # A video may also carry a playlist parameter (list=...). Video identity
+    # must win, otherwise the CLI sends it through the channel workflow.
+    if extract_video_id(text):
+        return False
     return any(marker in text for marker in [
         "/@", "/channel/", "/c/", "/user/", "/playlists", "/videos", "/featured", "list="
     ])
@@ -68,3 +72,8 @@ def format_timestamp(seconds: float) -> str:
     minutes = (sec % 3600) // 60
     rem_sec = sec % 60
     return f"[{hours:02d}:{minutes:02d}:{rem_sec:02d}]"
+
+
+def escape_markdown_cell(value: object) -> str:
+    """Keep arbitrary metadata from corrupting a Markdown table row."""
+    return str(value).replace("|", "\\|").replace("\r", " ").replace("\n", " ").strip()

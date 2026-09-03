@@ -53,3 +53,30 @@ def test_indexer_report_and_indices(tmp_path: Path):
     g_content = g_index.read_text(encoding="utf-8")
     assert "YouTube 量化投资研报知识库" in g_content
     assert "AlgoTrader" in g_content
+
+
+def test_report_filename_is_unique_for_same_title_and_date(tmp_path: Path):
+    output_dir = tmp_path / "output"
+    storage = StorageManager(output_dir / ".cache" / "test.db")
+    indexer = IndexBuilder(output_dir, storage)
+    common = dict(
+        title="Same title",
+        channel="AlgoTrader",
+        upload_date="2024-02-10",
+        duration_seconds=60,
+        duration_formatted="01:00",
+    )
+    first = indexer.save_report(
+        VideoMetadata(video_id="abc12345678", url="https://youtu.be/abc12345678", **common),
+        "one",
+        model_name="test",
+    )
+    second = indexer.save_report(
+        VideoMetadata(video_id="xyz12345678", url="https://youtu.be/xyz12345678", **common),
+        "two",
+        model_name="test",
+    )
+
+    assert first != second
+    assert first.read_text(encoding="utf-8").endswith("one\n")
+    assert second.read_text(encoding="utf-8").endswith("two\n")

@@ -22,6 +22,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from summarizer.utils import sanitize_filename
+from summarizer.channel_catalog import AI_CHANNELS
 
 logging.basicConfig(
     level=logging.INFO,
@@ -36,15 +37,6 @@ logger = logging.getLogger("AIPipeline")
 OUTPUT_DIR = PROJECT_ROOT / "output"
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
-AI_CHANNELS = [
-    ("Andrej Karpathy", "https://www.youtube.com/@AndrejKarpathy/videos"),
-    ("Dave Ebbelaar", "https://www.youtube.com/@daveebbelaar/videos"),
-    ("Jeff Su", "https://www.youtube.com/@JeffSu/videos"),
-    ("Tina Huang", "https://www.youtube.com/@TinaHuang1/videos"),
-    ("Google Cloud Tech", "https://www.youtube.com/@googlecloudtech/videos"),
-    ("Matt Wolfe (mreflow)", "https://www.youtube.com/@mreflow/videos"),
-    ("AI Explained", "https://www.youtube.com/@aiexplained-official/videos"),
-]
 
 BATCH_SIZE = 3  # 单次合并处理 3 个视频
 

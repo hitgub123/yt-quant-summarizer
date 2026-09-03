@@ -2,7 +2,7 @@
 
 **yt-quant-summarizer** 是一款专为量化交易研究员、策略开发者及投资学习者打造的自动化研报提炼与知识归档工具。
 
-只需输入任意 YouTube 量化/投资 UP 主的首页链接（如 `https://m.youtube.com/@AlgorithmTradingIn`），程序即可自动扫描全频道视频、**智能筛选出所有与投资/交易相关的视频**、秒级提取字幕或语音，并调用 **Google Gemini 2.5** 进行 7 大维度深度提炼与代码复现，按视频生成结构化 Markdown 研报并自动建立 Obsidian/Notion 知识库索引。
+只需输入任意 YouTube 量化/投资 UP 主的首页链接（如 `https://m.youtube.com/@AlgorithmTradingIn`），程序即可自动扫描全频道视频、**智能筛选出所有与投资/交易相关的视频**、提取字幕或语音，并调用 **Google Gemini** 生成简洁摘要。需要深入研究时可使用 `--research` 生成 7 大维度量化研报，并自动建立 Markdown 知识库索引。
 
 ---
 
@@ -11,7 +11,9 @@
 - 🎯 **一键扫描 UP 主频道全量投资视频**：
   - 支持直接输入 UP 主主页 URL（例如 `https://www.youtube.com/@AlgorithmTradingIn`），默认自动获取频道**全部**视频。
   - 内置中英文量化与金融多语种分类器，自动识别并**过滤非投资类的生活/闲聊视频**，精准提炼投资硬核内容。
-- 📊 **7 维度量化专属研报**：
+- 📝 **双输出模式**：
+  - 默认生成简洁视频摘要，降低 Token 消耗，适合快速浏览。
+  - 使用 `--research` 生成完整 7 维度量化研报：
   1. **视频基础信息与核心论点**（元数据概览 + 200字精炼摘要）
   2. **核心理念与策略逻辑**（Alpha 来源、盈利假说、适用/失效市场环境）
   3. **指标与数学公式**（标准 LaTeX 公式渲染、参数含义、计算步骤）
@@ -77,6 +79,10 @@ OUTPUT_DIR=output
 
 ## 📖 快速上手
 
+### 频道目标配置
+
+批处理和探测脚本统一读取 [`config/channels.yaml`](config/channels.yaml)。其中 `quant` 是默认量化频道，`optional_quant` 是可选量化频道，`ai` 是 AI 技术频道。修改该文件即可统一增删目标频道，无需逐个修改脚本。
+
 ### 🌟 模式 A：Antigravity 协同模式（🔥 推荐：免 API Key，直接使用 Gemini Pro 账号）
 
 无需申请或配置任何 `GEMINI_API_KEY`，使用本地 Python 工具抓取文稿，结合 Antigravity 对话全自动生成研报：
@@ -89,6 +95,10 @@ python -m summarizer fetch "https://www.youtube.com/@AlgorithmTradingIn" -n 5
 # 或者抓取单个视频
 python -m summarizer fetch "https://www.youtube.com/watch?v=6HVkYX298qM"
 ```
+
+`fetch` 默认只下载字幕。批量抓取遇到第一个 URL 失败时会停止；已经保存到 `output/.transcripts/<频道>/<视频ID>.json` 的文稿会作为检查点，下一次运行会自动跳过它们，从失败项和后续未抓取项继续。YouTube 返回 429 时默认不重试、不切换其他抓取器，并停止当前任务；熔断时间会持久化到 `output/.cache/subtitle_cooldown.json`，重启程序后仍然等待一天。可用 `--continue-on-error` 改为普通错误失败后继续处理，但 429 仍会立即中止。
+
+`fetch` 默认是字幕专用模式：只下载人工字幕或自动字幕，字幕失败时不会把视频 URL 发送给 Gemini。文稿会保存到 `output/.transcripts/<频道>/<视频ID>.json`，之后再交给 LLM 生成摘要或研报。需要自动兜底时可显式使用 `--transcript-mode auto`；可选值还有 `gemini-video`。
 
 #### 步骤 2：在 Antigravity 聊天框中一键生成研报
 抓取完成后，直接在 Antigravity 聊天中发送：
@@ -108,12 +118,16 @@ python -m summarizer channel "https://www.youtube.com/@AlgorithmTradingIn" -n 5
 
 # 单视频分析
 python -m summarizer summarize "https://www.youtube.com/watch?v=6HVkYX298qM"
+
+# 生成完整 7 维度量化研报（默认只生成摘要）
+python -m summarizer summarize "https://www.youtube.com/watch?v=6HVkYX298qM" --research
 ```
 
 > **常用参数**：
 > - `--limit N` (或 `-n N`): 限制处理最新的 N 个视频。不填则处理全部视频。
 > - `--all-videos` (或 `-a`): 强制处理全部视频，不过滤非投资视频。
 > - `--force` (或 `-f`): 强制重新生成已缓存的研报。
+> - `--research`: 使用完整 7 维度量化研报模式；默认生成简洁摘要。
 
 ### 📑 实用管理命令
 
@@ -150,6 +164,9 @@ print(f"总索引文件: {result['global_index']}")
 # 2. 分析单个视频
 record, report_path = pipeline.summarize_video("https://www.youtube.com/watch?v=6HVkYX298qM")
 print(f"研报生成至: {report_path}")
+
+# 如需完整量化研报：
+research_pipeline = QuantSummarizer(report_mode="research")
 ```
 
 ---

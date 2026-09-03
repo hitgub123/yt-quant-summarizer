@@ -2,22 +2,15 @@
 import yt_dlp
 from youtube_transcript_api import YouTubeTranscriptApi
 import time
+import sys
+from pathlib import Path
 
-channels = [
-    ("Algorithm Trading", "https://www.youtube.com/@AlgorithmTradingIn/videos"),
-    ("Andrei Jikh", "https://www.youtube.com/@AndreiJikh/videos"),
-    ("ARK Invest", "https://www.youtube.com/@ARKInvest2015/videos"),
-    ("MrBoKong (波空)", "https://www.youtube.com/@MrBoKong/videos"),
-    ("DataTraders", "https://www.youtube.com/@DataTraders/videos"),
-    ("EverythingMoney", "https://www.youtube.com/@EverythingMoney/videos"),
-    ("Ramit Sethi", "https://www.youtube.com/@ramitsethi/videos"),
-    ("Joseph Carlson", "https://www.youtube.com/@JosephCarlsonShow/videos"),
-    ("Live Traders", "https://www.youtube.com/@Live.Traders/videos"),
-    ("Trading with Rayner", "https://www.youtube.com/@tradingwithrayner/videos"),
-    ("TraderTV Live", "https://www.youtube.com/@TraderTVLive/videos"),
-    ("Yue Chen", "https://www.youtube.com/@YueChen-x8n9s/videos"),
-    ("美投君", "https://www.youtube.com/@MeiTouJun/videos"),
-]
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(PROJECT_ROOT))
+
+from summarizer.channel_catalog import QUANT_CHANNELS
+
+channels = QUANT_CHANNELS
 
 api = YouTubeTranscriptApi()
 ydl_opts = {"extract_flat": True, "skip_download": True, "quiet": True, "playlistend": 1}

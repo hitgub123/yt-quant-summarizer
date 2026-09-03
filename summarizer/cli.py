@@ -1,7 +1,7 @@
 from __future__ import annotations
 import sys
 from pathlib import Path
-from typing import Optional
+from typing import Literal, Optional
 import typer
 from rich.console import Console
 from rich.table import Table
@@ -11,6 +11,7 @@ from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TimeRe
 from summarizer.config import settings
 from summarizer.core import QuantSummarizer
 from summarizer.models import VideoMetadata, VideoRecord, ProcessingStatus
+from summarizer.transcriber import SubtitleCircuitOpenError, SubtitleRateLimitError
 
 app = typer.Typer(
     name="yt-quant",
@@ -26,8 +27,14 @@ def fetch(
     limit: Optional[int] = typer.Option(None, "--limit", "-n", help="Number of latest videos to process"),
     all_videos: bool = typer.Option(False, "--all-videos", "-a", help="Process all videos without filtering for investment relevance"),
     force: bool = typer.Option(False, "--force", "-f", help="Force re-fetch even if already processed"),
+    stop_on_error: bool = typer.Option(
+        True, "--stop-on-error/--continue-on-error", help="遇到第一个 URL 失败就停止，下一次从检查点继续"
+    ),
     proxy: Optional[str] = typer.Option(None, "--proxy", "-p", help="HTTP/SOCKS5 Proxy (e.g. http://127.0.0.1:7890)"),
     output_dir: Optional[str] = typer.Option(None, "--output-dir", "-o", help="Output directory"),
+    transcript_mode: Literal["subtitles", "auto", "gemini-video"] = typer.Option(
+        "subtitles", "--transcript-mode", help="字幕来源：仅字幕、自动兜底或直接使用 Gemini 视频"
+    ),
 ):
     """
     [Antigravity 最佳模式 - 零 API Key] 预抓取频道或单视频的元数据与文稿。
@@ -37,6 +44,7 @@ def fetch(
         pipeline = QuantSummarizer(
             proxy=proxy,
             output_dir=output_dir,
+            transcript_mode=transcript_mode,
         )
     except Exception as e:
         console.print(f"[bold red]初始化失败: {e}[/bold red]")
@@ -49,7 +57,7 @@ def fetch(
         console.print(Panel.fit(f"[bold cyan]正在提取单视频元数据与文稿 (免 Key):[/bold cyan] {target}", border_style="cyan"))
         try:
             with console.status("[bold green]正在抓取元数据并提取文稿...", spinner="dots"):
-                metadata, transcript, task_file = pipeline.fetch_video(target)
+                metadata, transcript, task_file = pipeline.fetch_video(target, force=force)
 
             console.print(f"[green]✓[/green] 视频标题: [bold]{metadata.title}[/bold]")
             console.print(f"[green]✓[/green] 频道: {metadata.channel} | 时长: {metadata.duration_formatted} | 发布: {metadata.upload_date or '未知'}")
@@ -121,9 +129,10 @@ def fetch(
 
         need_fetch = []
         for idx, vid in enumerate(to_fetch, 1):
-            is_cached = pipeline.storage.is_processed(vid.video_id)
-            if is_cached and not force:
-                status_str = "[yellow]研报已存在 (跳过)[/yellow]"
+            has_report = pipeline.storage.is_report_available(vid.video_id)
+            has_transcript = pipeline.is_transcript_available(vid.video_id)
+            if (has_report or has_transcript) and not force:
+                status_str = "[yellow]文稿已抓取 (跳过)[/yellow]" if has_transcript else "[yellow]研报已存在 (跳过)[/yellow]"
             else:
                 status_str = "[green]待提取文稿[/green]"
                 need_fetch.append(vid)
@@ -153,11 +162,17 @@ def fetch(
             for vid in need_fetch:
                 progress.update(task, description=f"[cyan]提取中: {vid.title[:28]}...")
                 try:
-                    metadata, transcript, task_file = pipeline.fetch_video(vid.video_id)
+                    metadata, transcript, task_file = pipeline.fetch_video(vid.video_id, force=force)
                     success_count += 1
                 except Exception as e:
                     failed_count += 1
                     console.print(f"\n[red]❌ 提取文稿失败 [{vid.title}]: {e}[/red]")
+                    if isinstance(e, (SubtitleRateLimitError, SubtitleCircuitOpenError)):
+                        console.print("[yellow]检测到 YouTube 429，已立即终止批处理；24 小时内不会再次访问字幕接口。[/yellow]")
+                        raise typer.Exit(code=1)
+                    if stop_on_error:
+                        console.print("[yellow]已停止。下次运行将跳过已有文稿，并从本次失败项继续。[/yellow]")
+                        break
 
                 progress.advance(task)
 
@@ -183,9 +198,13 @@ def fetch(
 def summarize(
     url: str = typer.Argument(..., help="YouTube video URL or Video ID"),
     force: bool = typer.Option(False, "--force", "-f", help="Force re-generate even if cached"),
+    research: bool = typer.Option(False, "--research", help="Generate the full 7-section quant research report"),
     model: Optional[str] = typer.Option(None, "--model", "-m", help="Gemini model name (e.g. gemini-2.5-flash)"),
     proxy: Optional[str] = typer.Option(None, "--proxy", "-p", help="HTTP/SOCKS5 Proxy (e.g. http://127.0.0.1:7890)"),
     output_dir: Optional[str] = typer.Option(None, "--output-dir", "-o", help="Output directory"),
+    transcript_mode: Literal["auto", "subtitles", "gemini-video"] = typer.Option(
+        "auto", "--transcript-mode", help="字幕来源：仅字幕、自动兜底或直接使用 Gemini 视频"
+    ),
 ):
     """Summarize a single YouTube quant/investment video and generate markdown report."""
     try:
@@ -193,6 +212,8 @@ def summarize(
             proxy=proxy,
             model=model,
             output_dir=output_dir,
+            report_mode="research" if research else "summary",
+            transcript_mode=transcript_mode,
         )
     except Exception as e:
         console.print(f"[bold red]初始化失败: {e}[/bold red]")
@@ -221,14 +242,15 @@ def summarize(
         console.print(f"[green]✓[/green] 视频标题: [bold]{metadata.title}[/bold]")
         console.print(f"[green]✓[/green] 频道: {metadata.channel} | 时长: {metadata.duration_formatted} | 发布: {metadata.upload_date or '未知'}")
 
-        if not force and pipeline.storage.is_processed(metadata.video_id):
+        if not force and pipeline.storage.is_report_available(metadata.video_id):
             record = pipeline.storage.get_record(metadata.video_id)
             console.print(f"[yellow]⚡ 视频已存在于缓存中，跳过生成。[/yellow] (使用 --force 重新生成)")
             if record and record.report_path:
                 console.print(f"📄 研报路径: [bold underline]{record.report_path}[/bold underline]")
             return
 
-        with console.status(f"[bold green]Gemini [{pipeline.model}] 正在深度提炼 7 维度量化研报...", spinner="dots"):
+        output_type = "7 维度量化研报" if research else "视频摘要"
+        with console.status(f"[bold green]Gemini [{pipeline.model}] 正在生成{output_type}...", spinner="dots"):
             record, report_file = pipeline.summarize_video(url, force=force)
 
         console.print(f"[bold green]🎉 研报生成成功！[/bold green]")
@@ -246,9 +268,13 @@ def channel(
     limit: Optional[int] = typer.Option(None, "--limit", "-n", help="Number of latest videos to process (default: all videos in channel)"),
     all_videos: bool = typer.Option(False, "--all-videos", "-a", help="Process all videos without filtering for investment relevance"),
     force: bool = typer.Option(False, "--force", "-f", help="Force re-generate even if cached"),
+    research: bool = typer.Option(False, "--research", help="Generate full 7-section quant research reports"),
     model: Optional[str] = typer.Option(None, "--model", "-m", help="Gemini model name"),
     proxy: Optional[str] = typer.Option(None, "--proxy", "-p", help="Proxy URL"),
     output_dir: Optional[str] = typer.Option(None, "--output-dir", "-o", help="Output directory"),
+    transcript_mode: Literal["auto", "subtitles", "gemini-video"] = typer.Option(
+        "auto", "--transcript-mode", help="字幕来源：仅字幕、自动兜底或直接使用 Gemini 视频"
+    ),
 ):
     """Batch analyze all investment-related videos from a creator's homepage."""
     try:
@@ -256,6 +282,8 @@ def channel(
             proxy=proxy,
             model=model,
             output_dir=output_dir,
+            report_mode="research" if research else "summary",
+            transcript_mode=transcript_mode,
         )
     except Exception as e:
         console.print(f"[bold red]初始化失败: {e}[/bold red]")
@@ -325,7 +353,7 @@ def channel(
 
         need_process = []
         for idx, vid in enumerate(to_analyze, 1):
-            is_cached = pipeline.storage.is_processed(vid.video_id)
+            is_cached = pipeline.storage.is_report_available(vid.video_id)
             if is_cached and not force:
                 status_str = "[yellow]已生成 (跳过)[/yellow]"
             else:
@@ -343,6 +371,7 @@ def channel(
 
         success_count = 0
         failed_count = 0
+        channels_to_index = {video.channel for video in to_analyze}
 
         with Progress(
             SpinnerColumn(),
@@ -357,50 +386,29 @@ def channel(
             for vid in need_process:
                 progress.update(task, description=f"[cyan]处理中: {vid.title[:28]}...")
                 try:
-                    # Single metadata refresh
-                    try:
-                        full_meta = pipeline.ingester.get_video_metadata(vid.video_id)
-                        vid = full_meta
-                    except Exception:
-                        pass
+                    vid = pipeline._refresh_metadata(vid)
+                    channels_to_index.add(vid.channel)
 
                     transcript = pipeline.transcriber.get_transcript(vid)
                     report_md = pipeline.analyzer.analyze(vid, transcript)
                     report_file = pipeline.indexer.save_report(vid, report_md, model_name=pipeline.model)
 
-                    record = VideoRecord(
-                        video_id=vid.video_id,
-                        channel=vid.channel,
-                        title=vid.title,
-                        upload_date=vid.upload_date,
-                        duration=vid.duration_formatted,
-                        status=ProcessingStatus.COMPLETED,
-                        transcript_source=transcript.source,
-                        report_path=str(report_file)
-                    )
+                    record = pipeline._completed_record(vid, transcript, report_file)
                     pipeline.storage.save_record(record)
                     success_count += 1
                 except Exception as e:
                     failed_count += 1
                     err_str = str(e)
-                    record = VideoRecord(
-                        video_id=vid.video_id,
-                        channel=vid.channel,
-                        title=vid.title,
-                        upload_date=vid.upload_date,
-                        duration=vid.duration_formatted,
-                        status=ProcessingStatus.FAILED,
-                        error_message=err_str
-                    )
-                    pipeline.storage.save_record(record)
+                    if not pipeline.storage.is_report_available(vid.video_id):
+                        pipeline.storage.save_record(pipeline._failed_record(vid, err_str))
                     console.print(f"\n[red]❌ 跳过异常视频 [{vid.title}]: {err_str}[/red]")
 
                 progress.advance(task)
 
         # Update all indices
         with console.status("[bold green]正在更新频道与全局索引...", spinner="dots"):
-            if to_analyze:
-                pipeline.indexer.update_channel_index(to_analyze[0].channel)
+            for channel_name in channels_to_index:
+                pipeline.indexer.update_channel_index(channel_name)
             pipeline.indexer.update_global_index()
 
         console.print(f"\n[bold green]🎉 UP 主频道投资研报批量处理完成！[/bold green]")

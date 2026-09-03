@@ -1,0 +1,299 @@
+{
+  "metadata": {
+    "video_id": "9hE5-98ZeCg",
+    "title": "Building with Gemini 2.0: Multimodal live streaming",
+    "channel": "Google for Developers",
+    "channel_id": "UC_x5XG1OV2P6uZZ5FSM9Ttw",
+    "channel_url": "https://www.youtube.com/channel/UC_x5XG1OV2P6uZZ5FSM9Ttw",
+    "upload_date": "2024-12-11",
+    "duration_seconds": 149,
+    "duration_formatted": "02:29",
+    "url": "https://www.youtube.com/watch?v=9hE5-98ZeCg",
+    "view_count": 73889,
+    "description": "The Multimodal Live API lets you build real-time multimodal applications using Gemini 2.0 Flash Experimental. Watch this demo to see how this new capability can help developers build AI agents, and start building with Gemini 2.0 at aistudio.google.com. \n\nResources:\nLearn more about Gemini 2.0 → https://goo.gle/4gwHlq3\nRead our Gemini 2.0 launch blog post →https://goo.gle/4g6G6OD \nRead our Developer blog post →https://goo.gle/3Bl23dQ \n\nSubscribe to Google for Developers → https://goo.gle/developers\n\nProducts Mentioned: Gemini",
+    "tags": [
+      "Google",
+      "developers",
+      "pr_pr: Generative AI;",
+      "Purpose: Learn;",
+      "ct: ;",
+      "gds:N/A;"
+    ],
+    "thumbnail_url": "https://i.ytimg.com/vi/9hE5-98ZeCg/maxresdefault.jpg"
+  },
+  "transcript": {
+    "video_id": "9hE5-98ZeCg",
+    "source": "youtube_subtitles",
+    "language": "en",
+    "full_text": "Okay, this is a quick demo of multimodal\nlive streaming in Gemini 2.0, and we are casting a tab into AI studio. [user] “Can you see my screen?” [model] “Yes, I see your screen. It's showing a document\nwith the title ‘demo’. It also contains bullet points\nand a Google Meet window with a person in the video.\nIs there anything in particular you would like to talk about\non the screen?” [user] “Yeah. Can you start the demo\nby just reading the text I highlighted?” [model] “Sure, I can do that. The text you highlighted reads\n‘the Multimodal Live API lets you build real time multimodal applications\npowered by Gemini 2.0 Flash. It features tool use like Google search and code\nexecution, function calling, and more.’ Would you like me to\nread the following lines too?” [user] “No, can you actually just tell me\nwhat this word means though?” [model] “I can do that. Multimodal refers\nto the ability to process and understand different types of data\nlike text, images, and audio altogether. Does that help?” [user] “Yeah. I need to demo the interruptions\nfeature next. Can you tell me a really boring\nkind of \"once upon a time\" sort of story?” [model] “Okay, I can do that. Once upon a time, in a small village\nnestled beside a quiet forest,\nthere was a very unremarkable rock. This rock was gray, and it was round, and it sat there-” [user] “Sorry, I have to interrupt you.” [model] “No problem. I understand that interruptions\nare part of the demo. What should I do now?” [user] “So we're going to demo memory. Can you just summarize\neverything we've seen or heard so far?” [model] “I can do that. So far, we've discussed\na demo of the Multimodal Live API, which lets you build realtime\nmultimodal apps. And I defined what multimodal means. I was also asked to tell a very boring\n\"once upon a time\" story, but I was interrupted. Is there anything else?” [user] “No. I think we're done. Do you want to read this ending card, or should I?” [model] “I can read it if you would like. The ending card says, ‘start building with\nGemini 2.0 at aistudio.google.com.’ Is that correct?” [user] “Yeah. That's great. All right, thanks, talk to you later.”",
+    "formatted_transcript": "[00:00:00] Okay, this is a quick demo of multimodal\nlive streaming in Gemini 2.0,\n[00:00:05] and we are casting a tab into AI studio.\n[00:00:10] [user] “Can you see my screen?”\n[00:00:15] [model] “Yes, I see your screen.\n[00:00:17] It's showing a document\nwith the title ‘demo’.\n[00:00:20] It also contains bullet points\nand a Google Meet window\n[00:00:22] with a person in the video.\nIs there anything in particular\n[00:00:25] you would like to talk about\non the screen?”\n[00:00:28] [user] “Yeah.\n[00:00:28] Can you start the demo\nby just reading the text\n[00:00:32] I highlighted?”\n[00:00:36] [model] “Sure, I can do that.\n[00:00:37] The text you highlighted reads\n‘the Multimodal Live API lets you build\n[00:00:41] real time multimodal applications\npowered by Gemini 2.0 Flash.\n[00:00:45] It features tool use\n[00:00:46] like Google search and code\nexecution, function calling, and more.’\n[00:00:50] Would you like me to\nread the following lines too?”\n[00:00:54] [user] “No,\n[00:00:54] can you actually just tell me\nwhat this word means though?”\n[00:01:00] [model] “I can do that.\n[00:01:01] Multimodal refers\nto the ability to process and understand\n[00:01:04] different types of data\nlike text, images, and audio altogether.\n[00:01:08] Does that help?”\n[00:01:10] [user] “Yeah.\n[00:01:11] I need to demo the interruptions\nfeature next.\n[00:01:14] Can you tell me a really boring\nkind of \"once upon a time\"\n[00:01:18] sort of story?”\n[00:01:23] [model] “Okay, I can do that.\n[00:01:24] Once upon a time, in a small village\nnestled beside\n[00:01:27] a quiet forest,\nthere was a very unremarkable rock.\n[00:01:31] This rock was gray, and it was round,\n[00:01:32] and it sat there-”\n[00:01:33] [user] “Sorry, I have to interrupt you.”\n[00:01:37] [model] “No problem.\n[00:01:38] I understand that interruptions\nare part of the demo.\n[00:01:40] What should I do now?”\n[00:01:43] [user] “So we're going to demo memory.\n[00:01:44] Can you just summarize\neverything we've seen or heard so far?”\n[00:01:51] [model] “I can do that.\n[00:01:52] So far, we've discussed\na demo of the Multimodal Live API,\n[00:01:56] which lets you build realtime\nmultimodal apps.\n[00:01:58] And I defined what multimodal means.\n[00:02:00] I was also asked to tell a very boring\n\"once upon a time\" story,\n[00:02:04] but I was interrupted.\n[00:02:05] Is there anything else?”\n[00:02:07] [user] “No. I think we're done.\n[00:02:10] Do you want to read this ending card,\n[00:02:12] or should I?”\n[00:02:16] [model] “I can read it if you would like.\n[00:02:18] The ending card says, ‘start building with\nGemini 2.0 at aistudio.google.com.’\n[00:02:24] Is that correct?”\n[00:02:25] [user] “Yeah. That's great.\n[00:02:26] All right, thanks, talk to you later.”",
+    "segments": [
+      {
+        "start": 0.333,
+        "duration": 5.167,
+        "text": "Okay, this is a quick demo of multimodal\nlive streaming in Gemini 2.0,"
+      },
+      {
+        "start": 5.833,
+        "duration": 3.7,
+        "text": "and we are casting a tab into AI studio."
+      },
+      {
+        "start": 10.6,
+        "duration": 3.0,
+        "text": "[user] “Can you see my screen?”"
+      },
+      {
+        "start": 15.6,
+        "duration": 1.933,
+        "text": "[model] “Yes, I see your screen."
+      },
+      {
+        "start": 17.533,
+        "duration": 2.5,
+        "text": "It's showing a document\nwith the title ‘demo’."
+      },
+      {
+        "start": 20.033,
+        "duration": 2.467,
+        "text": "It also contains bullet points\nand a Google Meet window"
+      },
+      {
+        "start": 22.5,
+        "duration": 2.733,
+        "text": "with a person in the video.\nIs there anything in particular"
+      },
+      {
+        "start": 25.233,
+        "duration": 3.0,
+        "text": "you would like to talk about\non the screen?”"
+      },
+      {
+        "start": 28.533,
+        "duration": 0.333,
+        "text": "[user] “Yeah."
+      },
+      {
+        "start": 28.866,
+        "duration": 3.5,
+        "text": "Can you start the demo\nby just reading the text"
+      },
+      {
+        "start": 32.366,
+        "duration": 3.0,
+        "text": "I highlighted?”"
+      },
+      {
+        "start": 36.333,
+        "duration": 1.033,
+        "text": "[model] “Sure, I can do that."
+      },
+      {
+        "start": 37.366,
+        "duration": 4.267,
+        "text": "The text you highlighted reads\n‘the Multimodal Live API lets you build"
+      },
+      {
+        "start": 41.633,
+        "duration": 4.167,
+        "text": "real time multimodal applications\npowered by Gemini 2.0 Flash."
+      },
+      {
+        "start": 45.833,
+        "duration": 1.067,
+        "text": "It features tool use"
+      },
+      {
+        "start": 46.9,
+        "duration": 3.666,
+        "text": "like Google search and code\nexecution, function calling, and more.’"
+      },
+      {
+        "start": 50.866,
+        "duration": 2.034,
+        "text": "Would you like me to\nread the following lines too?”"
+      },
+      {
+        "start": 54.066,
+        "duration": 0.5,
+        "text": "[user] “No,"
+      },
+      {
+        "start": 54.566,
+        "duration": 3.0,
+        "text": "can you actually just tell me\nwhat this word means though?”"
+      },
+      {
+        "start": 60.233,
+        "duration": 1.033,
+        "text": "[model] “I can do that."
+      },
+      {
+        "start": 61.266,
+        "duration": 2.934,
+        "text": "Multimodal refers\nto the ability to process and understand"
+      },
+      {
+        "start": 64.2,
+        "duration": 4.033,
+        "text": "different types of data\nlike text, images, and audio altogether."
+      },
+      {
+        "start": 68.6,
+        "duration": 1.733,
+        "text": "Does that help?”"
+      },
+      {
+        "start": 70.333,
+        "duration": 1.0,
+        "text": "[user] “Yeah."
+      },
+      {
+        "start": 71.333,
+        "duration": 3.133,
+        "text": "I need to demo the interruptions\nfeature next."
+      },
+      {
+        "start": 74.5,
+        "duration": 4.266,
+        "text": "Can you tell me a really boring\nkind of \"once upon a time\""
+      },
+      {
+        "start": 78.766,
+        "duration": 3.0,
+        "text": "sort of story?”"
+      },
+      {
+        "start": 83.433,
+        "duration": 1.233,
+        "text": "[model] “Okay, I can do that."
+      },
+      {
+        "start": 84.666,
+        "duration": 3.1,
+        "text": "Once upon a time, in a small village\nnestled beside"
+      },
+      {
+        "start": 87.766,
+        "duration": 3.434,
+        "text": "a quiet forest,\nthere was a very unremarkable rock."
+      },
+      {
+        "start": 91.333,
+        "duration": 1.573,
+        "text": "This rock was gray, and it was round,"
+      },
+      {
+        "start": 92.906,
+        "duration": 0.9,
+        "text": "and it sat there-”"
+      },
+      {
+        "start": 93.806,
+        "duration": 3.16,
+        "text": "[user] “Sorry, I have to interrupt you.”"
+      },
+      {
+        "start": 97.4,
+        "duration": 1.066,
+        "text": "[model] “No problem."
+      },
+      {
+        "start": 98.466,
+        "duration": 2.034,
+        "text": "I understand that interruptions\nare part of the demo."
+      },
+      {
+        "start": 100.5,
+        "duration": 2.633,
+        "text": "What should I do now?”"
+      },
+      {
+        "start": 103.133,
+        "duration": 1.333,
+        "text": "[user] “So we're going to demo memory."
+      },
+      {
+        "start": 104.466,
+        "duration": 4.267,
+        "text": "Can you just summarize\neverything we've seen or heard so far?”"
+      },
+      {
+        "start": 111.733,
+        "duration": 1.067,
+        "text": "[model] “I can do that."
+      },
+      {
+        "start": 112.8,
+        "duration": 3.366,
+        "text": "So far, we've discussed\na demo of the Multimodal Live API,"
+      },
+      {
+        "start": 116.266,
+        "duration": 2.267,
+        "text": "which lets you build realtime\nmultimodal apps."
+      },
+      {
+        "start": 118.533,
+        "duration": 2.267,
+        "text": "And I defined what multimodal means."
+      },
+      {
+        "start": 120.8,
+        "duration": 3.433,
+        "text": "I was also asked to tell a very boring\n\"once upon a time\" story,"
+      },
+      {
+        "start": 124.4,
+        "duration": 1.3,
+        "text": "but I was interrupted."
+      },
+      {
+        "start": 125.7,
+        "duration": 2.2,
+        "text": "Is there anything else?”"
+      },
+      {
+        "start": 127.9,
+        "duration": 2.2,
+        "text": "[user] “No. I think we're done."
+      },
+      {
+        "start": 130.1,
+        "duration": 2.4,
+        "text": "Do you want to read this ending card,"
+      },
+      {
+        "start": 132.5,
+        "duration": 3.0,
+        "text": "or should I?”"
+      },
+      {
+        "start": 136.8,
+        "duration": 1.233,
+        "text": "[model] “I can read it if you would like."
+      },
+      {
+        "start": 138.033,
+        "duration": 5.667,
+        "text": "The ending card says, ‘start building with\nGemini 2.0 at aistudio.google.com.’"
+      },
+      {
+        "start": 144.033,
+        "duration": 1.467,
+        "text": "Is that correct?”"
+      },
+      {
+        "start": 145.5,
+        "duration": 1.2,
+        "text": "[user] “Yeah. That's great."
+      },
+      {
+        "start": 146.7,
+        "duration": 1.866,
+        "text": "All right, thanks, talk to you later.”"
+      }
+    ]
+  },
+  "fetched_at": "2026-08-30 15:48:59"
+}

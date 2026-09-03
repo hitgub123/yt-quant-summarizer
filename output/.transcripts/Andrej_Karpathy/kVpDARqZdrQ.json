@@ -1,0 +1,107 @@
+{
+  "metadata": {
+    "video_id": "kVpDARqZdrQ",
+    "title": "Stable diffusion dreams of psychedelic faces",
+    "channel": "Andrej Karpathy",
+    "channel_id": "UCXUPKJO5MZQN11PqgIvyuvQ",
+    "channel_url": "https://www.youtube.com/channel/UCXUPKJO5MZQN11PqgIvyuvQ",
+    "upload_date": "2022-08-19",
+    "duration_seconds": 241,
+    "duration_formatted": "04:01",
+    "url": "https://www.youtube.com/watch?v=kVpDARqZdrQ",
+    "view_count": 53362,
+    "description": "Prompt: \"psychedelic faces\"\nStable diffusion takes a noise vector as input and samples an image. To create this video I smoothly (spherically) interpolate between randomly chosen noise vectors and render frames along the way.\n\nThis video was produced by one A100 GPU taking about 10 tabs and dreaming about the prompt overnight (~8 hours). While I slept and dreamt about other things.\n\nMusic: Stars by JVNA\n\nLinks:\n- Stable diffusion: https://stability.ai/blog\n- Code used to make this video: https://gist.github.com/karpathy/00103b0037c5aaea32fe1da1af553355\n- My twitter: https://twitter.com/karpathy",
+    "tags": [],
+    "thumbnail_url": "https://i.ytimg.com/vi/kVpDARqZdrQ/sddefault.jpg"
+  },
+  "transcript": {
+    "video_id": "kVpDARqZdrQ",
+    "source": "youtube_subtitles",
+    "language": "en",
+    "full_text": "[Music] [Music] [Music] so [Music] [Music] [Music] [Music] [Music] [Music] do [Music] so [Music] [Music] you",
+    "formatted_transcript": "[00:00:02] [Music]\n[00:00:41] [Music]\n[00:00:53] [Music]\n[00:01:03] so\n[00:01:08] [Music]\n[00:01:53] [Music]\n[00:02:02] [Music]\n[00:02:41] [Music]\n[00:02:53] [Music]\n[00:02:59] [Music]\n[00:03:15] do\n[00:03:18] [Music]\n[00:03:38] so\n[00:03:41] [Music]\n[00:03:53] [Music]\n[00:04:01] you",
+    "segments": [
+      {
+        "start": 2.43,
+        "duration": 36.24,
+        "text": "[Music]"
+      },
+      {
+        "start": 41.83,
+        "duration": 8.749,
+        "text": "[Music]"
+      },
+      {
+        "start": 53.52,
+        "duration": 9.06,
+        "text": "[Music]"
+      },
+      {
+        "start": 63.76,
+        "duration": 3.0,
+        "text": "so"
+      },
+      {
+        "start": 68.25,
+        "duration": 43.34,
+        "text": "[Music]"
+      },
+      {
+        "start": 113.66,
+        "duration": 6.329,
+        "text": "[Music]"
+      },
+      {
+        "start": 122.58,
+        "duration": 36.25,
+        "text": "[Music]"
+      },
+      {
+        "start": 161.98,
+        "duration": 8.749,
+        "text": "[Music]"
+      },
+      {
+        "start": 173.67,
+        "duration": 3.46,
+        "text": "[Music]"
+      },
+      {
+        "start": 179.56,
+        "duration": 18.47,
+        "text": "[Music]"
+      },
+      {
+        "start": 195.36,
+        "duration": 23.439,
+        "text": "do"
+      },
+      {
+        "start": 198.03,
+        "duration": 23.64,
+        "text": "[Music]"
+      },
+      {
+        "start": 218.799,
+        "duration": 12.941,
+        "text": "so"
+      },
+      {
+        "start": 221.67,
+        "duration": 10.07,
+        "text": "[Music]"
+      },
+      {
+        "start": 233.81,
+        "duration": 6.329,
+        "text": "[Music]"
+      },
+      {
+        "start": 241.04,
+        "duration": 2.08,
+        "text": "you"
+      }
+    ]
+  },
+  "fetched_at": "2026-08-30 16:04:59"
+}

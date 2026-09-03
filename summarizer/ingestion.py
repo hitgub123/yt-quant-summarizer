@@ -99,6 +99,7 @@ class VideoIngester:
         })
 
         videos: List[VideoMetadata] = []
+        seen_video_ids = set()
         with yt_dlp.YoutubeDL(opts) as ydl:
             info = ydl.extract_info(fetch_url, download=False)
             if not info:
@@ -111,8 +112,9 @@ class VideoIngester:
                 if not entry:
                     continue
                 vid_id = entry.get("id")
-                if not vid_id:
+                if not vid_id or vid_id in seen_video_ids:
                     continue
+                seen_video_ids.add(vid_id)
                 
                 vid_title = entry.get("title") or "Untitled Video"
                 entry_channel = entry.get("uploader") or entry.get("channel") or channel_name
